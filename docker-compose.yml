@@ -1,0 +1,53 @@
+version: "3.9"
+
+services:
+  heart-disease-train-basic:
+    build: .
+    entrypoint: ["python", "entrypoint/train.py"]
+    command: ["--mode", "basic", "--config", "config/basic/prod.yaml"]
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+
+  heart-disease-train-advanced:
+    build: .
+    entrypoint: ["python", "entrypoint/train.py"]
+    command: ["--mode", "advanced", "--config", "config/advanced/prod.yaml"]
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+
+  heart-disease-inference-basic:
+    build: .
+    entrypoint: ["python", "entrypoint/inference.py"]
+    command: ["--mode", "basic", "--config", "config/basic/prod.yaml"]
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+
+  heart-disease-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./models:/app/models
+      - ./config:/app/config
+    environment:
+      # Ollama chạy trên máy host (ngoài container) — "host.docker.internal" trỏ
+      # về host trên Docker Desktop (Windows/Mac). Trên Linux cần dòng extra_hosts bên dưới.
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  heart-disease-app:
+    build:
+      context: .
+      dockerfile: Dockerfile.app
+    ports:
+      - "8501:8501"
+    environment:
+      - API_URL=http://heart-disease-api:8000
+    depends_on:
+      - heart-disease-api

@@ -1,0 +1,23 @@
+stages:
+  - test
+  - build
+
+variables:
+  PYTHONPATH: "$CI_PROJECT_DIR"
+
+test:
+  stage: test
+  image: python:3.10-slim
+  script:
+    - pip install -r requirements-dev.txt
+    - pytest src/tests/ -v
+
+build:
+  stage: build
+  image: docker:24
+  services:
+    - docker:24-dind
+  script:
+    - docker build -t heart-disease-prediction:$CI_COMMIT_SHORT_SHA .
+  only:
+    - main

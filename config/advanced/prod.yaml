@@ -1,0 +1,33 @@
+env: prod
+mode: advanced
+
+data:
+  raw_path: "/app/data/advanced/01-raw/heart.csv"
+  preprocessed_path: "/app/data/advanced/02-preprocessed/heart_preprocessed.csv"
+  features_path: "/app/data/advanced/03-features/heart_features.csv"
+  predictions_path: "/app/data/advanced/04-predictions/predictions.csv"
+  target_column: "target"
+  test_size: 0.2
+  val_size: 0.1
+  random_state: 42
+
+model:
+  type: "random_forest"
+  save_path: "/app/models/advanced/best_model.pkl"
+  scaler_path: "/app/models/advanced/scaler.pkl"
+  feature_columns_path: "/app/models/advanced/feature_columns.json"
+  params:
+    n_estimators: 500
+    max_depth: 10
+    class_weight: "balanced"
+
+training:
+  cv_folds: 5
+  scoring: "roc_auc"
+
+reports:
+  figures_dir: "/app/reports/advanced/figures"
+  metrics_path: "/app/reports/advanced/metrics.json"
+
+logging:
+  level: "INFO"
