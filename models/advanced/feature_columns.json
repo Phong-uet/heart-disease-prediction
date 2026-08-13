@@ -1,0 +1,16 @@
+[
+  "age",
+  "chol",
+  "fbs",
+  "thalch",
+  "exang",
+  "oldpeak",
+  "ca",
+  "sex_Male",
+  "cp_atypical angina",
+  "cp_non-anginal",
+  "cp_typical angina",
+  "thal_normal",
+  "thal_reversable defect",
+  "thal_unknown"
+]
