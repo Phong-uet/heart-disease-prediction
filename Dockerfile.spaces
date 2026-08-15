@@ -1,0 +1,33 @@
+# Dockerfile gộp: chạy CẢ FastAPI (nội bộ) + Streamlit (public) trong 1 container.
+# Dùng cho Hugging Face Spaces (yêu cầu 1 container, lắng nghe cổng 7860 cố định)
+# hoặc bất kỳ nền tảng nào chỉ hỗ trợ deploy 1 container duy nhất.
+
+FROM python:3.10-slim
+
+WORKDIR /app
+
+# curl cần cho healthcheck trong start.sh
+RUN apt-get update && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements-prod.txt .
+COPY app/requirements.txt app-requirements.txt
+RUN pip install --no-cache-dir -r requirements-prod.txt -r app-requirements.txt
+
+COPY config/ config/
+COPY src/ src/
+COPY api/ api/
+COPY app/ app/
+COPY rag/ rag/
+COPY models/ models/
+COPY start.sh .
+
+RUN chmod +x start.sh
+
+ENV PYTHONPATH=/app
+# Streamlit (chạy trong container) gọi API qua localhost — không cần set biến môi trường
+# nào thêm, code đã mặc định fallback về http://127.0.0.1:8000 khi không có secrets/API_URL.
+
+EXPOSE 7860
+
+CMD ["./start.sh"]
