@@ -113,52 +113,58 @@ Mở `http://localhost:8501`.
 make test
 ```
 
-## Chatbot tư vấn (dùng Ollama — chạy local, miễn phí 100%)
+## Chatbot tư vấn (2 backend: Ollama local hoặc Groq cloud)
 
 Sau khi có kết quả dự đoán, người dùng có thể **hỏi thêm chatbot** — chatbot trả lời
 dựa trên chính hồ sơ và kết quả vừa nhận được (không phải trả lời chung chung).
 
-Chatbot chạy bằng **Ollama** — model AI mã nguồn mở chạy ngay trên máy bạn, **không cần
-API key, không tốn phí, không cần internet** sau khi đã tải model về.
+Chatbot hỗ trợ **2 backend**, chọn bằng biến môi trường `CHATBOT_BACKEND`:
 
-### Cài đặt Ollama (chỉ làm 1 lần)
+| Backend | Khi nào dùng | Chi phí | Cần gì |
+|---|---|---|---|
+| `ollama` (mặc định) | Chạy **local** trên máy bạn | Miễn phí 100%, mãi mãi | Cài Ollama (xem bên dưới) |
+| `groq` | **Deploy công khai** (server không cài được Ollama) | Miễn phí (14,400 request/ngày, không cần thẻ) | API key tại console.groq.com |
 
-1. Tải Ollama tại **https://ollama.com/download** (có bản Windows/Mac/Linux), cài như phần mềm bình thường
-2. Sau khi cài, Ollama tự chạy nền (xem icon ở khay hệ thống / system tray) — không cần thao tác gì thêm
-3. Mở terminal (PowerShell/CMD), tải model về:
-   ```bash
-   ollama pull llama3.1:8b
+### Dùng Ollama (local)
+
+1. Tải Ollama tại **https://ollama.com/download**, cài như phần mềm bình thường — tự chạy nền
+2. Tải model: `ollama pull llama3.1:8b` (~4.7GB, máy yếu hơn dùng `llama3.2:3b`)
+3. Không cần cấu hình gì thêm (`CHATBOT_BACKEND=ollama` là mặc định)
+
+### Dùng Groq (khi deploy công khai)
+
+1. Lấy API key miễn phí tại **console.groq.com/keys** (chỉ cần email, không cần thẻ)
+2. Đặt biến môi trường (trong `.env` cho local, hoặc mục Environment Variables trên
+   Render/nền tảng deploy):
    ```
-   File nặng khoảng 4.7GB, tùy tốc độ mạng có thể mất 5-20 phút. Cần khoảng 8GB RAM trống để chạy mượt.
-
-   **Máy yếu hơn?** Dùng model nhẹ hơn:
-   ```bash
-   ollama pull llama3.2:3b
+   CHATBOT_BACKEND=groq
+   GROQ_API_KEY=gsk_xxxxxxxxxxxxxxxxxxxx
    ```
-   rồi sửa `OLLAMA_MODEL=llama3.2:3b` trong file `.env` (xem bên dưới).
+3. Model mặc định `llama-3.1-8b-instant` — đổi qua `GROQ_MODEL` nếu muốn model khác
+   (xem danh sách tại console.groq.com)
 
-4. (Tùy chọn) Test thử model chat trực tiếp ngoài project: `ollama run llama3.1:8b`, gõ thử câu hỏi, `/bye` để thoát.
+**Lưu ý:** RAG (tra cứu tài liệu) chỉ hoạt động với backend `ollama` vì cần Ollama tính
+embedding. Khi dùng `groq`, chatbot vẫn hoạt động bình thường, chỉ không tra cứu tài liệu
+(tự động bỏ qua, không lỗi).
 
-> **Mẹo:** câu hỏi **đầu tiên** sau khi bật Ollama luôn chậm hơn hẳn (30-90 giây tùy máy) vì
-> Ollama phải nạp toàn bộ model vào RAM. Các câu hỏi sau đó (trong vòng 30 phút) sẽ nhanh hơn
-> nhiều vì model đã nằm sẵn trong RAM. Nếu muốn "làm nóng" trước khi demo cho người khác xem,
-> chạy `ollama run llama3.1:8b` và hỏi thử 1 câu trước.
+Nếu chatbot chưa sẵn sàng (thiếu key/Ollama chưa chạy), giao diện Streamlit **tự ẩn khung
+chat** thay vì hiện ra rồi báo lỗi cho người dùng — kiểm tra qua `GET /health`, xem trường
+`chatbot_available`.
 
-### Chạy project
+### Quy tắc an toàn đã thiết lập sẵn cho chatbot
 
-Không cần cấu hình gì thêm nếu dùng model mặc định `llama3.1:8b` ở địa chỉ mặc định.
-Muốn đổi model/địa chỉ, copy `.env.example` thành `.env` và sửa giá trị trong đó.
+Chatbot (`api/chatbot.py`) được cấu hình với các ràng buộc trong system prompt (áp dụng cho
+cả 2 backend):
+- **Không chẩn đoán** — chỉ giải thích kết quả model, không khẳng định chắc chắn có/không bị bệnh
+- **Không tư vấn thuốc/liều lượng**
+- Nếu người dùng mô tả **triệu chứng cấp tính** → khuyên gọi cấp cứu ngay
+- Nếu mức độ nguy cơ **Cao** → luôn ưu tiên khuyên đến cơ sở y tế
+- Lời khuyên lối sống chỉ ở mức khuyến cáo y tế công cộng chung (WHO/AHA)
 
-```bash
-pip install -r requirements-prod.txt
-uvicorn api.main:app --reload
-```
+> Lưu ý: model nhỏ (3B-8B, dù local hay qua Groq) có thể tuân thủ quy tắc kém nhất quán hơn
+> model thương mại lớn — nên xem đây là công cụ demo/học tập, luôn tự kiểm tra output.
 
-Kiểm tra `GET /health` sẽ thấy `"chatbot_available": true` nếu Ollama đang chạy tốt.
-Nếu Ollama chưa chạy, `/chat` sẽ trả lỗi `503` với hướng dẫn cụ thể (không phải lỗi khó hiểu),
-và bạn **không cần khởi động lại API** — chỉ cần bật Ollama lên rồi thử lại.
-
-### RAG — chatbot tra cứu tài liệu (tùy chọn, mặc định TẮT)
+## RAG — chatbot tra cứu tài liệu (tùy chọn, mặc định TẮT)
 
 Chatbot có thể tra cứu một bộ tài liệu kiến thức tim mạch (`rag/knowledge_base/*.md` — dinh
 dưỡng, vận động, hút thuốc/rượu bia, yếu tố nguy cơ, triệu chứng cảnh báo) trước khi trả lời,

@@ -14,7 +14,21 @@ import streamlit as st
 
 st.set_page_config(page_title="Dự đoán Bệnh Tim", page_icon="❤️", layout="centered")
 
-DEFAULT_API_URL = os.environ.get("API_URL", "http://127.0.0.1:8000")
+
+def _get_default_api_url() -> str:
+    """
+    Ưu tiên theo thứ tự: Streamlit Secrets (dùng khi deploy lên Streamlit Cloud)
+    -> biến môi trường (dùng khi chạy Docker/local) -> mặc định localhost (chạy local thường).
+    """
+    try:
+        if "API_URL" in st.secrets:
+            return st.secrets["API_URL"]
+    except Exception:
+        pass  # Chưa cấu hình secrets.toml (bình thường khi chạy local) -> bỏ qua, dùng fallback
+    return os.environ.get("API_URL", "http://127.0.0.1:8000")
+
+
+DEFAULT_API_URL = _get_default_api_url()
 
 # ---------------------------------------------------------------------------
 # Sidebar
@@ -22,14 +36,18 @@ DEFAULT_API_URL = os.environ.get("API_URL", "http://127.0.0.1:8000")
 st.sidebar.header("⚙️ Cấu hình")
 api_url = st.sidebar.text_input("Địa chỉ API", value=DEFAULT_API_URL)
 
+chatbot_available = False
+
 with st.sidebar:
     st.markdown("---")
     try:
         health = requests.get(f"{api_url}/health", timeout=5).json()
         basic_ok = health.get("basic_model_loaded")
         adv_ok = health.get("advanced_model_loaded")
+        chatbot_available = health.get("chatbot_available", False)
         st.write(f"{'✅' if basic_ok else '❌'} Model Basic")
         st.write(f"{'✅' if adv_ok else '❌'} Model Advanced")
+        st.write(f"{'✅' if chatbot_available else '⚪'} Chatbot tư vấn")
     except requests.exceptions.RequestException:
         st.error("❌ Không kết nối được API.\nChạy: `uvicorn api.main:app --reload`")
 
@@ -276,9 +294,15 @@ if submitted and endpoint:
         )
 
 # ---------------------------------------------------------------------------
-# Chatbot tư vấn — chỉ hiện sau khi đã có kết quả dự đoán (trong session này)
+# Chatbot tư vấn — chỉ hiện nếu API báo chatbot khả dụng, và đã có kết quả dự đoán
 # ---------------------------------------------------------------------------
-if "last_result" in st.session_state:
+if "last_result" in st.session_state and not chatbot_available:
+    st.markdown("---")
+    st.info(
+        "💬 Chatbot tư vấn hiện không khả dụng trên bản demo này "
+        "(cần cấu hình Ollama hoặc Groq API cho backend chatbot)."
+    )
+elif "last_result" in st.session_state:
     st.markdown("---")
     st.subheader("💬 Hỏi thêm chatbot tư vấn")
     st.caption(

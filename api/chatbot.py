@@ -122,18 +122,39 @@ def build_system_prompt(
     )
 
 
-class OllamaConnectionError(Exception):
-    """Không kết nối được tới Ollama server (chưa cài, chưa chạy, hoặc sai địa chỉ)."""
+class ChatbotConnectionError(Exception):
+    """Không kết nối được / không gọi được backend chatbot (Ollama hoặc Groq)."""
+
+
+# Chọn backend qua biến môi trường CHATBOT_BACKEND=ollama (mặc định, local, miễn phí,
+# cần cài Ollama) hoặc =groq (API cloud miễn phí, dùng khi deploy công khai vì server
+# không cài được Ollama). Xem README phần Chatbot.
+BACKEND = os.environ.get("CHATBOT_BACKEND", "ollama").lower()
+
+GROQ_BASE_URL = "https://api.groq.com/openai/v1"
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
+GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama-3.1-8b-instant")
 
 
 class HealthChatbot:
-    def __init__(self, base_url: str = None, model: str = None):
-        self.base_url = base_url or OLLAMA_BASE_URL
-        self.model = model or MODEL_NAME
+    def __init__(self, base_url: str = None, model: str = None, backend: str = None):
+        self.backend = (backend or BACKEND).lower()
         self.retriever = KnowledgeRetriever()
 
+        if self.backend == "groq":
+            self.base_url = GROQ_BASE_URL
+            self.model = model or GROQ_MODEL
+        else:
+            self.backend = "ollama"
+            self.base_url = base_url or OLLAMA_BASE_URL
+            self.model = model or MODEL_NAME
+
     def is_available(self) -> bool:
-        """Kiểm tra Ollama server có đang chạy không (dùng lúc startup, không bắt buộc)."""
+        """Kiểm tra chatbot có sẵn sàng dùng không (dùng lúc startup, không bắt buộc)."""
+        if self.backend == "groq":
+            # Không gọi thật để tránh tốn quota — chỉ cần đã có API key là coi như sẵn sàng,
+            # lỗi thật (key sai, hết quota...) sẽ lộ ra rõ ràng ngay lần chat() đầu tiên.
+            return bool(GROQ_API_KEY)
         try:
             resp = requests.get(f"{self.base_url}/api/tags", timeout=3)
             return resp.status_code == 200
@@ -146,117 +167,75 @@ class HealthChatbot:
     def _build_messages(
         self, mode: str, patient: dict, prediction_result: dict, message: str, history: list[dict] | None
     ) -> list[dict]:
-        # Chỉ tìm tài liệu nếu index đã được build (rag/build_index.py đã chạy).
-        # Nếu chưa có index -> retrieve_if_relevant() trả về [] ngay, không tốn thời gian gọi Ollama.
+        # RAG chỉ hoạt động nếu index đã build bằng Ollama embeddings (chỉ khả dụng local) —
+        # trên bản deploy dùng backend=groq, retriever tự động không sẵn sàng, bỏ qua RAG,
+        # chatbot vẫn hoạt động bình thường bằng kiến thức sẵn có của model.
         retrieved_chunks = self.retriever.retrieve_if_relevant(message) if self.retriever.is_ready() else []
 
         system_prompt = build_system_prompt(mode, patient, prediction_result, retrieved_chunks)
         messages = [{"role": "system", "content": system_prompt}]
-        # Chỉ giữ 6 lượt hỏi-đáp gần nhất — hội thoại dài làm prompt phình to,
-        # khiến mỗi câu trả lời sau càng lúc càng chậm (thời gian xử lý prompt tăng theo độ dài).
         messages.extend((history or [])[-12:])
         messages.append({"role": "user", "content": message})
         return messages
 
-    def _payload(self, messages: list[dict], stream: bool) -> dict:
+    # ------------------------------------------------------------------
+    # Backend: OLLAMA (local, NDJSON streaming, endpoint /api/chat)
+    # ------------------------------------------------------------------
+    def _ollama_payload(self, messages: list[dict], stream: bool) -> dict:
         return {
             "model": self.model,
             "messages": messages,
             "stream": stream,
-            "keep_alive": "30m",  # giữ model trong RAM 30 phút giữa các câu hỏi, tránh nạp lại liên tục
+            "keep_alive": "30m",
             "options": {"num_predict": NUM_PREDICT},
         }
 
-    def chat(
-        self,
-        mode: str,
-        patient: dict,
-        prediction_result: dict,
-        message: str,
-        history: list[dict] | None = None,
-    ) -> str:
-        """Gọi Ollama và trả về TOÀN BỘ câu trả lời 1 lần (không streaming)."""
-        messages = self._build_messages(mode, patient, prediction_result, message, history)
-
+    def _chat_ollama(self, messages: list[dict]) -> str:
         try:
             response = requests.post(
-                f"{self.base_url}/api/chat",
-                json=self._payload(messages, stream=False),
+                f"{self.base_url}/api/chat", json=self._ollama_payload(messages, stream=False),
                 timeout=REQUEST_TIMEOUT,
             )
         except requests.exceptions.ConnectionError:
-            raise OllamaConnectionError(
+            raise ChatbotConnectionError(
                 f"Không kết nối được Ollama tại {self.base_url}. "
                 f"Kiểm tra: đã cài Ollama chưa, Ollama đã chạy chưa (icon khay hệ thống), "
                 f"và đã `ollama pull {self.model}` chưa? Xem README phần Chatbot."
             )
         except requests.exceptions.Timeout:
-            raise OllamaConnectionError(
+            raise ChatbotConnectionError(
                 f"Ollama phản hồi chậm hơn {REQUEST_TIMEOUT}s. Model '{self.model}' có thể đang "
-                f"nạp vào bộ nhớ lần đầu (thường chỉ chậm ở lần hỏi đầu tiên), hoặc máy không đủ "
-                f"mạnh cho model này — thử lại lần nữa, hoặc đổi sang model nhẹ hơn "
-                f"(VD: ollama pull llama3.2:3b, sửa OLLAMA_MODEL trong .env)."
+                f"nạp vào bộ nhớ lần đầu, hoặc máy không đủ mạnh — thử lại, hoặc đổi model nhẹ hơn."
             )
-
         if response.status_code == 404:
-            raise OllamaConnectionError(
-                f"Model '{self.model}' chưa được tải về. Chạy: ollama pull {self.model}"
-            )
-
+            raise ChatbotConnectionError(f"Model '{self.model}' chưa được tải về. Chạy: ollama pull {self.model}")
         if response.status_code != 200:
-            # Lộ ra thông báo lỗi thật sự từ Ollama thay vì chỉ "500 Internal Server Error"
-            # chung chung — Ollama thường trả lỗi rất cụ thể (VD: thiếu RAM/VRAM) trong body.
             try:
                 error_detail = response.json().get("error", response.text)
             except ValueError:
                 error_detail = response.text
-            raise OllamaConnectionError(
-                f"Ollama trả về lỗi (status {response.status_code}): {error_detail}"
-            )
-
+            raise ChatbotConnectionError(f"Ollama trả về lỗi (status {response.status_code}): {error_detail}")
         return response.json()["message"]["content"]
 
-    def chat_stream(
-        self,
-        mode: str,
-        patient: dict,
-        prediction_result: dict,
-        message: str,
-        history: list[dict] | None = None,
-    ):
-        """
-        Giống chat() nhưng trả về generator, yield từng mẩu text ngay khi Ollama sinh ra —
-        giúp người dùng thấy câu trả lời "gõ dần" thay vì đợi xong cả câu (tổng thời gian
-        không đổi, nhưng cảm giác nhanh hơn nhiều vì thấy phản hồi gần như ngay lập tức).
-        """
-        messages = self._build_messages(mode, patient, prediction_result, message, history)
-
+    def _chat_stream_ollama(self, messages: list[dict]):
         try:
             response = requests.post(
-                f"{self.base_url}/api/chat",
-                json=self._payload(messages, stream=True),
-                timeout=REQUEST_TIMEOUT,
-                stream=True,
+                f"{self.base_url}/api/chat", json=self._ollama_payload(messages, stream=True),
+                timeout=REQUEST_TIMEOUT, stream=True,
             )
         except requests.exceptions.ConnectionError:
-            raise OllamaConnectionError(
-                f"Không kết nối được Ollama tại {self.base_url}. "
-                f"Kiểm tra: đã cài Ollama chưa, Ollama đã chạy chưa (icon khay hệ thống), "
-                f"và đã `ollama pull {self.model}` chưa? Xem README phần Chatbot."
+            raise ChatbotConnectionError(
+                f"Không kết nối được Ollama tại {self.base_url}. Kiểm tra Ollama đã chạy chưa."
             )
         except requests.exceptions.Timeout:
-            raise OllamaConnectionError(
-                f"Ollama phản hồi chậm hơn {REQUEST_TIMEOUT}s. Thử lại, hoặc đổi model nhẹ hơn."
-            )
+            raise ChatbotConnectionError(f"Ollama phản hồi chậm hơn {REQUEST_TIMEOUT}s. Thử lại.")
 
         if response.status_code != 200:
             try:
                 error_detail = response.json().get("error", response.text)
             except ValueError:
                 error_detail = response.text
-            raise OllamaConnectionError(
-                f"Ollama trả về lỗi (status {response.status_code}): {error_detail}"
-            )
+            raise ChatbotConnectionError(f"Ollama trả về lỗi (status {response.status_code}): {error_detail}")
 
         for line in response.iter_lines():
             if not line:
@@ -267,3 +246,93 @@ class HealthChatbot:
                 yield content
             if chunk.get("done"):
                 break
+
+    # ------------------------------------------------------------------
+    # Backend: GROQ (cloud, miễn phí, chuẩn OpenAI API, SSE streaming)
+    # ------------------------------------------------------------------
+    def _groq_headers(self) -> dict:
+        return {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
+
+    def _groq_payload(self, messages: list[dict], stream: bool) -> dict:
+        return {"model": self.model, "messages": messages, "stream": stream, "max_tokens": NUM_PREDICT}
+
+    def _chat_groq(self, messages: list[dict]) -> str:
+        if not GROQ_API_KEY:
+            raise ChatbotConnectionError(
+                "Thiếu GROQ_API_KEY. Lấy key miễn phí tại console.groq.com/keys, "
+                "đặt biến môi trường GROQ_API_KEY (xem README phần Chatbot)."
+            )
+        try:
+            response = requests.post(
+                f"{self.base_url}/chat/completions", headers=self._groq_headers(),
+                json=self._groq_payload(messages, stream=False), timeout=REQUEST_TIMEOUT,
+            )
+        except requests.exceptions.RequestException as e:
+            raise ChatbotConnectionError(f"Không gọi được Groq API: {e}")
+
+        if response.status_code != 200:
+            try:
+                error_detail = response.json().get("error", {}).get("message", response.text)
+            except ValueError:
+                error_detail = response.text
+            raise ChatbotConnectionError(f"Groq trả về lỗi (status {response.status_code}): {error_detail}")
+
+        return response.json()["choices"][0]["message"]["content"]
+
+    def _chat_stream_groq(self, messages: list[dict]):
+        if not GROQ_API_KEY:
+            raise ChatbotConnectionError(
+                "Thiếu GROQ_API_KEY. Lấy key miễn phí tại console.groq.com/keys, "
+                "đặt biến môi trường GROQ_API_KEY (xem README phần Chatbot)."
+            )
+        try:
+            response = requests.post(
+                f"{self.base_url}/chat/completions", headers=self._groq_headers(),
+                json=self._groq_payload(messages, stream=True), timeout=REQUEST_TIMEOUT, stream=True,
+            )
+        except requests.exceptions.RequestException as e:
+            raise ChatbotConnectionError(f"Không gọi được Groq API: {e}")
+
+        if response.status_code != 200:
+            try:
+                error_detail = response.json().get("error", {}).get("message", response.text)
+            except ValueError:
+                error_detail = response.text
+            raise ChatbotConnectionError(f"Groq trả về lỗi (status {response.status_code}): {error_detail}")
+
+        for line in response.iter_lines():
+            if not line or not line.startswith(b"data: "):
+                continue
+            payload = line[len(b"data: "):]
+            if payload.strip() == b"[DONE]":
+                break
+            chunk = json.loads(payload)
+            content = chunk["choices"][0].get("delta", {}).get("content", "")
+            if content:
+                yield content
+
+    # ------------------------------------------------------------------
+    # API công khai — tự động gọi đúng backend đang cấu hình
+    # ------------------------------------------------------------------
+    def chat(
+        self, mode: str, patient: dict, prediction_result: dict, message: str, history: list[dict] | None = None,
+    ) -> str:
+        """Gọi chatbot, trả về TOÀN BỘ câu trả lời 1 lần (không streaming)."""
+        messages = self._build_messages(mode, patient, prediction_result, message, history)
+        if self.backend == "groq":
+            return self._chat_groq(messages)
+        return self._chat_ollama(messages)
+
+    def chat_stream(
+        self, mode: str, patient: dict, prediction_result: dict, message: str, history: list[dict] | None = None,
+    ):
+        """Giống chat() nhưng trả về generator, yield từng mẩu text ngay khi sinh ra."""
+        messages = self._build_messages(mode, patient, prediction_result, message, history)
+        if self.backend == "groq":
+            yield from self._chat_stream_groq(messages)
+        else:
+            yield from self._chat_stream_ollama(messages)
+
+
+# Alias để tương thích ngược với code cũ (api/main.py import OllamaConnectionError)
+OllamaConnectionError = ChatbotConnectionError

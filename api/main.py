@@ -93,13 +93,16 @@ def load_models():
 
     chatbot = HealthChatbot()
     if chatbot.is_available():
-        logger.info(f"Chatbot (Ollama, model={chatbot.model}) đã sẵn sàng.")
+        logger.info(f"Chatbot (backend={chatbot.backend}, model={chatbot.model}) đã sẵn sàng.")
     else:
-        logger.warning(
-            f"Ollama chưa chạy hoặc chưa cài tại {chatbot.base_url}. "
-            f"Endpoint /chat sẽ báo lỗi rõ ràng cho tới khi Ollama sẵn sàng "
-            f"(không cần khởi động lại API sau khi bật Ollama)."
-        )
+        if chatbot.backend == "groq":
+            logger.warning("Thiếu GROQ_API_KEY. Endpoint /chat sẽ báo lỗi rõ ràng cho tới khi cấu hình key.")
+        else:
+            logger.warning(
+                f"Ollama chưa chạy hoặc chưa cài tại {chatbot.base_url}. "
+                f"Endpoint /chat sẽ báo lỗi rõ ràng cho tới khi Ollama sẵn sàng "
+                f"(không cần khởi động lại API sau khi bật Ollama)."
+            )
 
     if chatbot.rag_ready():
         logger.info(f"RAG đã sẵn sàng ({len(chatbot.retriever._meta)} chunks đã index).")
