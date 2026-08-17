@@ -53,6 +53,76 @@ with st.sidebar:
 
 st.title("❤️ Dự đoán Nguy cơ Bệnh Tim")
 
+page = st.sidebar.radio("📄 Trang", ["🔍 Dự đoán", "📊 Dashboard thống kê"])
+
+
+def render_dashboard():
+    st.header("📊 Dashboard thống kê sử dụng")
+    st.caption(
+        "Số liệu tổng hợp về các lượt dự đoán đã thực hiện trên hệ thống này. "
+        "Chỉ lưu số liệu tổng hợp (không lưu thông tin cá nhân của bất kỳ ai)."
+    )
+
+    try:
+        summary = requests.get(f"{api_url}/stats/summary", timeout=5).json()
+    except requests.exceptions.RequestException as e:
+        st.error(f"Không lấy được số liệu thống kê: {e}")
+        return
+
+    total = summary.get("total_predictions", 0)
+    if total == 0:
+        st.info("Chưa có lượt dự đoán nào được ghi nhận. Hãy thử dự đoán ở trang '🔍 Dự đoán' trước.")
+        return
+
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Tổng số lượt dự đoán", total)
+    col2.metric("Xác suất trung bình", f"{summary.get('avg_probability', 0) * 100:.1f}%")
+    by_risk = summary.get("by_risk_level", {})
+    col3.metric("Số ca nguy cơ Cao", by_risk.get("High", 0))
+
+    st.markdown("---")
+
+    col_a, col_b = st.columns(2)
+
+    with col_a:
+        st.subheader("Phân bố mức độ nguy cơ")
+        risk_labels_vi = {"Low": "Thấp", "Medium": "Trung bình", "High": "Cao"}
+        risk_colors = {"Low": "#2ECC71", "Medium": "#F1C40F", "High": "#E74C3C"}
+        labels = [risk_labels_vi.get(k, k) for k in by_risk.keys()]
+        values = list(by_risk.values())
+        colors = [risk_colors.get(k, "#95A5A6") for k in by_risk.keys()]
+        fig1 = go.Figure(go.Pie(labels=labels, values=values, marker_colors=colors, hole=0.4))
+        fig1.update_layout(height=320, margin=dict(l=10, r=10, t=10, b=10))
+        st.plotly_chart(fig1, use_container_width=True)
+
+    with col_b:
+        st.subheader("Số lượt theo chế độ")
+        by_mode = summary.get("by_mode", {})
+        mode_labels_vi = {"basic": "Sàng lọc nhanh", "advanced": "Nâng cao"}
+        labels = [mode_labels_vi.get(k, k) for k in by_mode.keys()]
+        fig2 = go.Figure(go.Bar(x=labels, y=list(by_mode.values()), marker_color="#3498DB"))
+        fig2.update_layout(height=320, margin=dict(l=10, r=10, t=10, b=10))
+        st.plotly_chart(fig2, use_container_width=True)
+
+    by_day = summary.get("by_day", [])
+    if len(by_day) > 1:
+        st.subheader("Số lượt dự đoán theo ngày")
+        dates = [d["date"] for d in by_day]
+        counts = [d["count"] for d in by_day]
+        fig3 = go.Figure(go.Scatter(x=dates, y=counts, mode="lines+markers", line=dict(color="#E74C3C")))
+        fig3.update_layout(height=300, margin=dict(l=10, r=10, t=10, b=10), xaxis_title="Ngày", yaxis_title="Số lượt")
+        st.plotly_chart(fig3, use_container_width=True)
+
+    st.caption(
+        "⚠️ Trên bản deploy free tier, số liệu có thể bị reset khi hệ thống khởi động lại/deploy lại "
+        "(không dùng ổ đĩa lưu trữ lâu dài)."
+    )
+
+
+if page == "📊 Dashboard thống kê":
+    render_dashboard()
+    st.stop()
+
 
 def render_contribution_chart(feature_contributions: list):
     """Vẽ biểu đồ ngang: yếu tố nào đang kéo xác suất TĂNG (đỏ) hay GIẢM (xanh)."""

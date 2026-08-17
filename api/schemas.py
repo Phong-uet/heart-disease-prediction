@@ -135,6 +135,19 @@ class HealthResponse(BaseModel):
     rag_enabled: bool
 
 
+class DayCount(BaseModel):
+    date: str
+    count: int
+
+
+class StatsSummary(BaseModel):
+    total_predictions: int
+    by_mode: dict[str, int]
+    by_risk_level: dict[str, int]
+    avg_probability: float
+    by_day: list[DayCount]
+
+
 # ============================================================================
 # CHATBOT
 # ============================================================================

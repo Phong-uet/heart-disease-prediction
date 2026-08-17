@@ -17,6 +17,9 @@ models/advanced/*.json
 rag/index.npy
 rag/index_meta.json
 
+# Stats database (sinh ra lúc runtime)
+data/stats/*.db
+
 # Python
 __pycache__/
 *.py[cod]

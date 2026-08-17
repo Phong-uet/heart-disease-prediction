@@ -231,6 +231,19 @@ Chatbot (`api/chatbot.py`) được cấu hình với các ràng buộc trong sy
 > model thương mại lớn — nên xem đây là công cụ demo/học tập, luôn tự kiểm tra output trước
 > khi dùng cho mục đích thực tế.
 
+## Dashboard thống kê sử dụng
+
+Sidebar Streamlit có thêm mục **"📊 Dashboard thống kê"** — hiển thị tổng số lượt dự đoán,
+phân bố mức nguy cơ, số lượt theo chế độ (basic/advanced), và xu hướng theo ngày.
+
+Backend lưu bằng SQLite (`api/stats.py`, file tại `data/stats/usage.db`) — mỗi lượt `/predict`
+tự động ghi lại **chỉ số liệu tổng hợp** (mode, prediction, probability, risk_level, thời gian),
+**không lưu bất kỳ thông tin cá nhân/lâm sàng nào** của người dùng.
+
+Truy vấn trực tiếp qua `GET /stats/summary`.
+
+⚠️ Trên free tier (Render...), ổ đĩa không persistent — số liệu có thể mất khi deploy lại.
+
 ## Giải thích dự đoán (feature contribution)
 
 Sau mỗi lần dự đoán, giao diện hiển thị thêm biểu đồ **"Yếu tố ảnh hưởng đến kết quả dự đoán

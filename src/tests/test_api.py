@@ -74,6 +74,17 @@ def test_predict_basic_invalid_age_group_rejected():
     assert response.status_code == 422
 
 
+def test_stats_summary_returns_valid_structure():
+    # Gọi predict trước để chắc chắn có ít nhất 1 bản ghi thống kê
+    client.post("/predict/basic", json=VALID_BASIC_PATIENT)
+    response = client.get("/stats/summary")
+    assert response.status_code == 200
+    body = response.json()
+    assert "total_predictions" in body
+    assert body["total_predictions"] >= 1
+    assert "by_mode" in body and "by_risk_level" in body and "by_day" in body
+
+
 def test_predict_missing_required_field():
     patient = dict(VALID_BASIC_PATIENT)
     del patient["sex"]

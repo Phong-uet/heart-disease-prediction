@@ -32,9 +32,11 @@ from api.schemas import (
     HealthResponse,
     ChatRequest,
     ChatResponse,
+    StatsSummary,
 )
 from api.inference import BasicPredictor, AdvancedPredictor
 from api.chatbot import HealthChatbot, OllamaConnectionError
+from api import stats
 from src.pipelines.utils import load_config, get_logger
 
 BASIC_CONFIG_PATH = os.environ.get("BASIC_CONFIG_PATH", "config/basic/local.yaml")
@@ -68,6 +70,9 @@ chatbot: HealthChatbot | None = None  # luôn được gán ở startup, không 
 @app.on_event("startup")
 def load_models():
     global basic_predictor, advanced_predictor, chatbot
+
+    stats.init_db()
+    logger.info("Đã khởi tạo database thống kê sử dụng.")
 
     try:
         basic_predictor = BasicPredictor(
@@ -134,6 +139,7 @@ def predict_basic(patient: PatientInputBasic):
     try:
         result = basic_predictor.predict(patient)
         logger.info(f"[basic] input={patient.model_dump()} -> result={result}")
+        stats.log_prediction("basic", result["prediction"], result["probability"], result["risk_level"])
         return PredictionResponse(**result)
     except Exception as e:
         logger.error(f"Lỗi khi predict (basic): {e}")
@@ -150,6 +156,7 @@ def predict_advanced(patient: PatientInputAdvanced):
     try:
         result = advanced_predictor.predict(patient)
         logger.info(f"[advanced] input={patient.model_dump()} -> result={result}")
+        stats.log_prediction("advanced", result["prediction"], result["probability"], result["risk_level"])
         return PredictionResponse(**result)
     except Exception as e:
         logger.error(f"Lỗi khi predict (advanced): {e}")
@@ -207,11 +214,16 @@ def chat_stream(request: ChatRequest):
     return StreamingResponse(generate(), media_type="text/plain")
 
 
+@app.get("/stats/summary", response_model=StatsSummary)
+def stats_summary():
+    return StatsSummary(**stats.get_summary())
+
+
 @app.get("/")
 def root():
     return {
         "message": "Heart Disease Prediction API đang chạy.",
         "docs": "/docs",
         "health": "/health",
-        "endpoints": ["/predict/basic", "/predict/advanced", "/chat", "/chat/stream"],
+        "endpoints": ["/predict/basic", "/predict/advanced", "/chat", "/chat/stream", "/stats/summary"],
     }
