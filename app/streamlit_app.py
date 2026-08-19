@@ -29,31 +29,21 @@ def _get_default_api_url() -> str:
 
 
 DEFAULT_API_URL = _get_default_api_url()
+api_url = DEFAULT_API_URL
 
-# ---------------------------------------------------------------------------
-# Sidebar
-# ---------------------------------------------------------------------------
-st.sidebar.header("⚙️ Cấu hình")
-api_url = st.sidebar.text_input("Địa chỉ API", value=DEFAULT_API_URL)
-
+# Âm thầm kiểm tra trạng thái API/chatbot (không hiển thị lên giao diện) — chỉ dùng để
+# quyết định có hiện khung chat hay không. Nếu API không phản hồi được, các phần gọi
+# API khác trong trang (dự đoán, dashboard) sẽ tự báo lỗi rõ ràng ngay tại chỗ khi cần.
 chatbot_available = False
-
-with st.sidebar:
-    st.markdown("---")
-    try:
-        health = requests.get(f"{api_url}/health", timeout=5).json()
-        basic_ok = health.get("basic_model_loaded")
-        adv_ok = health.get("advanced_model_loaded")
-        chatbot_available = health.get("chatbot_available", False)
-        st.write(f"{'✅' if basic_ok else '❌'} Model Basic")
-        st.write(f"{'✅' if adv_ok else '❌'} Model Advanced")
-        st.write(f"{'✅' if chatbot_available else '⚪'} Chatbot tư vấn")
-    except requests.exceptions.RequestException:
-        st.error("❌ Không kết nối được API.\nChạy: `uvicorn api.main:app --reload`")
+try:
+    _health = requests.get(f"{api_url}/health", timeout=5).json()
+    chatbot_available = _health.get("chatbot_available", False)
+except requests.exceptions.RequestException:
+    pass
 
 st.title("❤️ Dự đoán Nguy cơ Bệnh Tim")
 
-page = st.sidebar.radio("📄 Trang", ["🔍 Dự đoán", "📊 Dashboard thống kê"])
+page = st.sidebar.radio("📄 Điều hướng", ["🔍 Dự đoán", "📊 Dashboard thống kê"])
 
 
 def render_dashboard():
