@@ -20,6 +20,7 @@ sys.path.append(os.getcwd())
 
 import joblib
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -44,7 +45,8 @@ def analyze_feature_importance(config: dict):
 
     # Dùng lại đúng tập test như lúc training để đánh giá permutation importance
     _, X_test, _, y_test = train_test_split(
-        X, y,
+        X,
+        y,
         test_size=data_cfg["test_size"],
         random_state=data_cfg["random_state"],
         stratify=y,
@@ -58,8 +60,12 @@ def analyze_feature_importance(config: dict):
     # --- 2. Permutation Importance ---
     logger.info("Đang tính permutation importance (có thể mất chút thời gian)...")
     perm_result = permutation_importance(
-        model, X_test, y_test,
-        n_repeats=30, random_state=data_cfg["random_state"], scoring="roc_auc"
+        model,
+        X_test,
+        y_test,
+        n_repeats=30,
+        random_state=data_cfg["random_state"],
+        scoring="roc_auc",
     )
     perm_importance = pd.Series(
         perm_result.importances_mean, index=X.columns
@@ -67,8 +73,13 @@ def analyze_feature_importance(config: dict):
     perm_std = pd.Series(perm_result.importances_std, index=X.columns)
 
     # --- In kết quả ---
-    logger.info("\n=== TOP 10 Gini Importance ===\n" + gini_importance.head(10).to_string())
-    logger.info("\n=== TOP 10 Permutation Importance ===\n" + perm_importance.head(10).to_string())
+    logger.info(
+        "\n=== TOP 10 Gini Importance ===\n" + gini_importance.head(10).to_string()
+    )
+    logger.info(
+        "\n=== TOP 10 Permutation Importance ===\n"
+        + perm_importance.head(10).to_string()
+    )
 
     # --- Vẽ biểu đồ so sánh ---
     fig, axes = plt.subplots(1, 2, figsize=(16, 8))

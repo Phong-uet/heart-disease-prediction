@@ -17,7 +17,10 @@ import pandas as pd
 
 import sys
 import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..")))
+
+sys.path.append(
+    os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+)
 
 from src.pipelines.utils import get_logger
 
@@ -29,9 +32,19 @@ TARGET_COL = "target"
 # Toàn bộ cột trong dataset này vốn đã sạch (không missing, đã ở dạng số)
 # nên bước preprocess chủ yếu là: đổi tên cột dễ hiểu + ép kiểu int cho binary cols
 BINARY_COLS = [
-    "HighBP", "HighChol", "CholCheck", "Smoker", "Stroke", "PhysActivity",
-    "Fruits", "Veggies", "HvyAlcoholConsump", "AnyHealthcare", "NoDocbcCost",
-    "DiffWalk", "Sex",
+    "HighBP",
+    "HighChol",
+    "CholCheck",
+    "Smoker",
+    "Stroke",
+    "PhysActivity",
+    "Fruits",
+    "Veggies",
+    "HvyAlcoholConsump",
+    "AnyHealthcare",
+    "NoDocbcCost",
+    "DiffWalk",
+    "Sex",
 ]
 ORDINAL_COLS = ["GenHlth", "Age", "Education", "Income", "Diabetes"]
 NUMERIC_COLS = ["BMI", "MentHlth", "PhysHlth"]
@@ -66,7 +79,9 @@ def check_missing(df: pd.DataFrame) -> pd.DataFrame:
     """Dataset BRFSS đã được làm sạch sẵn, nhưng vẫn kiểm tra để chắc chắn."""
     n_missing = df.isnull().sum().sum()
     if n_missing > 0:
-        logger.warning(f"Phát hiện {n_missing} missing values, đang điền median/mode...")
+        logger.warning(
+            f"Phát hiện {n_missing} missing values, đang điền median/mode..."
+        )
         for col in df.columns:
             if df[col].isnull().any():
                 if df[col].dtype in ["float64", "int64"]:

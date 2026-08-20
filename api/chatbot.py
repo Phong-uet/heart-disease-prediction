@@ -69,7 +69,8 @@ def _format_patient_summary_basic(patient: dict) -> str:
         f"- Từng đột quỵ: {'Có' if patient.get('stroke') else 'Không'}",
         f"- Hút thuốc: {'Có' if patient.get('smoker') else 'Không'}",
         f"- Vận động thể chất thường xuyên: {'Có' if patient.get('phys_activity') else 'Không'}",
-        f"- Ăn trái cây/rau củ hàng ngày: {'Có' if patient.get('fruits') else 'Không'}/{'Có' if patient.get('veggies') else 'Không'}",
+        f"- Ăn trái cây/rau củ hàng ngày: "
+        f"{'Có' if patient.get('fruits') else 'Không'}/{'Có' if patient.get('veggies') else 'Không'}",
         f"- Tự đánh giá sức khỏe tổng quát: {patient.get('gen_health')}",
         f"- Khó khăn khi đi bộ/leo cầu thang: {'Có' if patient.get('diff_walk') else 'Không'}",
     ]
@@ -99,17 +100,30 @@ def _format_retrieved_context(retrieved_chunks: list[dict] | None) -> str:
 
 
 def build_system_prompt(
-    mode: str, patient: dict, prediction_result: dict, retrieved_chunks: list[dict] | None = None
+    mode: str,
+    patient: dict,
+    prediction_result: dict,
+    retrieved_chunks: list[dict] | None = None,
 ) -> str:
-    mode_label = "Sàng lọc nhanh - tự đánh giá" if mode == "basic" else "Nâng cao - có kết quả xét nghiệm"
+    mode_label = (
+        "Sàng lọc nhanh - tự đánh giá"
+        if mode == "basic"
+        else "Nâng cao - có kết quả xét nghiệm"
+    )
     patient_summary = (
         _format_patient_summary_basic(patient)
         if mode == "basic"
         else _format_patient_summary_advanced(patient)
     )
-    prediction_label = "CÓ nguy cơ mắc bệnh tim" if prediction_result["prediction"] == 1 else "KHÔNG có nguy cơ mắc bệnh tim"
+    prediction_label = (
+        "CÓ nguy cơ mắc bệnh tim"
+        if prediction_result["prediction"] == 1
+        else "KHÔNG có nguy cơ mắc bệnh tim"
+    )
     risk_level_map = {"Low": "Thấp", "Medium": "Trung bình", "High": "Cao"}
-    risk_level_label = risk_level_map.get(prediction_result["risk_level"], prediction_result["risk_level"])
+    risk_level_label = risk_level_map.get(
+        prediction_result["risk_level"], prediction_result["risk_level"]
+    )
     retrieved_context_block = _format_retrieved_context(retrieved_chunks)
 
     return SYSTEM_PROMPT_TEMPLATE.format(
@@ -165,14 +179,25 @@ class HealthChatbot:
         return self.retriever.is_ready()
 
     def _build_messages(
-        self, mode: str, patient: dict, prediction_result: dict, message: str, history: list[dict] | None
+        self,
+        mode: str,
+        patient: dict,
+        prediction_result: dict,
+        message: str,
+        history: list[dict] | None,
     ) -> list[dict]:
         # RAG chỉ hoạt động nếu index đã build bằng Ollama embeddings (chỉ khả dụng local) —
         # trên bản deploy dùng backend=groq, retriever tự động không sẵn sàng, bỏ qua RAG,
         # chatbot vẫn hoạt động bình thường bằng kiến thức sẵn có của model.
-        retrieved_chunks = self.retriever.retrieve_if_relevant(message) if self.retriever.is_ready() else []
+        retrieved_chunks = (
+            self.retriever.retrieve_if_relevant(message)
+            if self.retriever.is_ready()
+            else []
+        )
 
-        system_prompt = build_system_prompt(mode, patient, prediction_result, retrieved_chunks)
+        system_prompt = build_system_prompt(
+            mode, patient, prediction_result, retrieved_chunks
+        )
         messages = [{"role": "system", "content": system_prompt}]
         messages.extend((history or [])[-12:])
         messages.append({"role": "user", "content": message})
@@ -193,7 +218,8 @@ class HealthChatbot:
     def _chat_ollama(self, messages: list[dict]) -> str:
         try:
             response = requests.post(
-                f"{self.base_url}/api/chat", json=self._ollama_payload(messages, stream=False),
+                f"{self.base_url}/api/chat",
+                json=self._ollama_payload(messages, stream=False),
                 timeout=REQUEST_TIMEOUT,
             )
         except requests.exceptions.ConnectionError:
@@ -208,34 +234,44 @@ class HealthChatbot:
                 f"nạp vào bộ nhớ lần đầu, hoặc máy không đủ mạnh — thử lại, hoặc đổi model nhẹ hơn."
             )
         if response.status_code == 404:
-            raise ChatbotConnectionError(f"Model '{self.model}' chưa được tải về. Chạy: ollama pull {self.model}")
+            raise ChatbotConnectionError(
+                f"Model '{self.model}' chưa được tải về. Chạy: ollama pull {self.model}"
+            )
         if response.status_code != 200:
             try:
                 error_detail = response.json().get("error", response.text)
             except ValueError:
                 error_detail = response.text
-            raise ChatbotConnectionError(f"Ollama trả về lỗi (status {response.status_code}): {error_detail}")
+            raise ChatbotConnectionError(
+                f"Ollama trả về lỗi (status {response.status_code}): {error_detail}"
+            )
         return response.json()["message"]["content"]
 
     def _chat_stream_ollama(self, messages: list[dict]):
         try:
             response = requests.post(
-                f"{self.base_url}/api/chat", json=self._ollama_payload(messages, stream=True),
-                timeout=REQUEST_TIMEOUT, stream=True,
+                f"{self.base_url}/api/chat",
+                json=self._ollama_payload(messages, stream=True),
+                timeout=REQUEST_TIMEOUT,
+                stream=True,
             )
         except requests.exceptions.ConnectionError:
             raise ChatbotConnectionError(
                 f"Không kết nối được Ollama tại {self.base_url}. Kiểm tra Ollama đã chạy chưa."
             )
         except requests.exceptions.Timeout:
-            raise ChatbotConnectionError(f"Ollama phản hồi chậm hơn {REQUEST_TIMEOUT}s. Thử lại.")
+            raise ChatbotConnectionError(
+                f"Ollama phản hồi chậm hơn {REQUEST_TIMEOUT}s. Thử lại."
+            )
 
         if response.status_code != 200:
             try:
                 error_detail = response.json().get("error", response.text)
             except ValueError:
                 error_detail = response.text
-            raise ChatbotConnectionError(f"Ollama trả về lỗi (status {response.status_code}): {error_detail}")
+            raise ChatbotConnectionError(
+                f"Ollama trả về lỗi (status {response.status_code}): {error_detail}"
+            )
 
         for line in response.iter_lines():
             if not line:
@@ -251,10 +287,18 @@ class HealthChatbot:
     # Backend: GROQ (cloud, miễn phí, chuẩn OpenAI API, SSE streaming)
     # ------------------------------------------------------------------
     def _groq_headers(self) -> dict:
-        return {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
+        return {
+            "Authorization": f"Bearer {GROQ_API_KEY}",
+            "Content-Type": "application/json",
+        }
 
     def _groq_payload(self, messages: list[dict], stream: bool) -> dict:
-        return {"model": self.model, "messages": messages, "stream": stream, "max_tokens": NUM_PREDICT}
+        return {
+            "model": self.model,
+            "messages": messages,
+            "stream": stream,
+            "max_tokens": NUM_PREDICT,
+        }
 
     def _chat_groq(self, messages: list[dict]) -> str:
         if not GROQ_API_KEY:
@@ -264,18 +308,24 @@ class HealthChatbot:
             )
         try:
             response = requests.post(
-                f"{self.base_url}/chat/completions", headers=self._groq_headers(),
-                json=self._groq_payload(messages, stream=False), timeout=REQUEST_TIMEOUT,
+                f"{self.base_url}/chat/completions",
+                headers=self._groq_headers(),
+                json=self._groq_payload(messages, stream=False),
+                timeout=REQUEST_TIMEOUT,
             )
         except requests.exceptions.RequestException as e:
             raise ChatbotConnectionError(f"Không gọi được Groq API: {e}")
 
         if response.status_code != 200:
             try:
-                error_detail = response.json().get("error", {}).get("message", response.text)
+                error_detail = (
+                    response.json().get("error", {}).get("message", response.text)
+                )
             except ValueError:
                 error_detail = response.text
-            raise ChatbotConnectionError(f"Groq trả về lỗi (status {response.status_code}): {error_detail}")
+            raise ChatbotConnectionError(
+                f"Groq trả về lỗi (status {response.status_code}): {error_detail}"
+            )
 
         return response.json()["choices"][0]["message"]["content"]
 
@@ -287,23 +337,30 @@ class HealthChatbot:
             )
         try:
             response = requests.post(
-                f"{self.base_url}/chat/completions", headers=self._groq_headers(),
-                json=self._groq_payload(messages, stream=True), timeout=REQUEST_TIMEOUT, stream=True,
+                f"{self.base_url}/chat/completions",
+                headers=self._groq_headers(),
+                json=self._groq_payload(messages, stream=True),
+                timeout=REQUEST_TIMEOUT,
+                stream=True,
             )
         except requests.exceptions.RequestException as e:
             raise ChatbotConnectionError(f"Không gọi được Groq API: {e}")
 
         if response.status_code != 200:
             try:
-                error_detail = response.json().get("error", {}).get("message", response.text)
+                error_detail = (
+                    response.json().get("error", {}).get("message", response.text)
+                )
             except ValueError:
                 error_detail = response.text
-            raise ChatbotConnectionError(f"Groq trả về lỗi (status {response.status_code}): {error_detail}")
+            raise ChatbotConnectionError(
+                f"Groq trả về lỗi (status {response.status_code}): {error_detail}"
+            )
 
         for line in response.iter_lines():
             if not line or not line.startswith(b"data: "):
                 continue
-            payload = line[len(b"data: "):]
+            payload = line[len(b"data: ") :]
             if payload.strip() == b"[DONE]":
                 break
             chunk = json.loads(payload)
@@ -315,19 +372,33 @@ class HealthChatbot:
     # API công khai — tự động gọi đúng backend đang cấu hình
     # ------------------------------------------------------------------
     def chat(
-        self, mode: str, patient: dict, prediction_result: dict, message: str, history: list[dict] | None = None,
+        self,
+        mode: str,
+        patient: dict,
+        prediction_result: dict,
+        message: str,
+        history: list[dict] | None = None,
     ) -> str:
         """Gọi chatbot, trả về TOÀN BỘ câu trả lời 1 lần (không streaming)."""
-        messages = self._build_messages(mode, patient, prediction_result, message, history)
+        messages = self._build_messages(
+            mode, patient, prediction_result, message, history
+        )
         if self.backend == "groq":
             return self._chat_groq(messages)
         return self._chat_ollama(messages)
 
     def chat_stream(
-        self, mode: str, patient: dict, prediction_result: dict, message: str, history: list[dict] | None = None,
+        self,
+        mode: str,
+        patient: dict,
+        prediction_result: dict,
+        message: str,
+        history: list[dict] | None = None,
     ):
         """Giống chat() nhưng trả về generator, yield từng mẩu text ngay khi sinh ra."""
-        messages = self._build_messages(mode, patient, prediction_result, message, history)
+        messages = self._build_messages(
+            mode, patient, prediction_result, message, history
+        )
         if self.backend == "groq":
             yield from self._chat_stream_groq(messages)
         else:

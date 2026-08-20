@@ -18,7 +18,10 @@ from sklearn.preprocessing import StandardScaler
 
 import sys
 import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..")))
+
+sys.path.append(
+    os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+)
 
 from src.pipelines.utils import get_logger
 
@@ -26,13 +29,32 @@ logger = get_logger(__name__)
 
 # Cột nhị phân (0/1) -> giữ nguyên, không cần encode/scale
 BINARY_COLS = [
-    "HighBP", "HighChol", "CholCheck", "Smoker", "Stroke", "PhysActivity",
-    "Fruits", "Veggies", "HvyAlcoholConsump", "AnyHealthcare", "NoDocbcCost",
-    "DiffWalk", "Sex",
+    "HighBP",
+    "HighChol",
+    "CholCheck",
+    "Smoker",
+    "Stroke",
+    "PhysActivity",
+    "Fruits",
+    "Veggies",
+    "HvyAlcoholConsump",
+    "AnyHealthcare",
+    "NoDocbcCost",
+    "DiffWalk",
+    "Sex",
 ]
 
 # Cột numeric/ordinal -> scale bằng StandardScaler
-SCALE_COLS = ["BMI", "MentHlth", "PhysHlth", "GenHlth", "Age", "Education", "Income", "Diabetes"]
+SCALE_COLS = [
+    "BMI",
+    "MentHlth",
+    "PhysHlth",
+    "GenHlth",
+    "Age",
+    "Education",
+    "Income",
+    "Diabetes",
+]
 
 
 def load_preprocessed_data(preprocessed_path: str) -> pd.DataFrame:
@@ -67,7 +89,9 @@ def build_features(config: dict) -> pd.DataFrame:
     feature_columns_path = config["model"]["feature_columns_path"]
     with open(feature_columns_path, "w", encoding="utf-8") as f:
         json.dump(feature_columns, f, ensure_ascii=False, indent=2)
-    logger.info(f"Đã lưu danh sách {len(feature_columns)} feature columns vào {feature_columns_path}")
+    logger.info(
+        f"Đã lưu danh sách {len(feature_columns)} feature columns vào {feature_columns_path}"
+    )
 
     return df
 

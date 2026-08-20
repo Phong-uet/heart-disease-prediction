@@ -8,38 +8,68 @@ import os
 
 sys.path.append(os.getcwd())
 
+import pytest
 from fastapi.testclient import TestClient
 
 from api.main import app
 
-client = TestClient(app)
+
+@pytest.fixture(scope="module")
+def client():
+    # PHẢI dùng "with" để lifespan (startup/shutdown) thực sự chạy — nếu chỉ gọi
+    # TestClient(app) mà không có "with", model sẽ KHÔNG được load, mọi endpoint
+    # /predict sẽ trả 503 dù code hoàn toàn đúng (đã tự gặp lỗi này khi thêm CI).
+    with TestClient(app) as c:
+        yield c
+
 
 VALID_BASIC_PATIENT = {
-    "age_group": "50-54", "sex": "Male", "height_cm": 170, "weight_kg": 85,
-    "high_bp": True, "high_chol": True, "chol_check": True,
-    "diabetes": "Không", "stroke": False,
-    "smoker": True, "phys_activity": False, "fruits": False, "veggies": True,
-    "heavy_alcohol": False, "gen_health": "Trung bình",
-    "mental_health_days": 5, "phys_health_days": 10, "diff_walk": True,
-    "any_healthcare": True, "no_doc_because_cost": False,
-    "education_level": "Tốt nghiệp THPT", "income_level": "25-35k",
+    "age_group": "50-54",
+    "sex": "Male",
+    "height_cm": 170,
+    "weight_kg": 85,
+    "high_bp": True,
+    "high_chol": True,
+    "chol_check": True,
+    "diabetes": "Không",
+    "stroke": False,
+    "smoker": True,
+    "phys_activity": False,
+    "fruits": False,
+    "veggies": True,
+    "heavy_alcohol": False,
+    "gen_health": "Trung bình",
+    "mental_health_days": 5,
+    "phys_health_days": 10,
+    "diff_walk": True,
+    "any_healthcare": True,
+    "no_doc_because_cost": False,
+    "education_level": "Tốt nghiệp THPT",
+    "income_level": "25-35k",
 }
 
 VALID_ADVANCED_PATIENT = {
-    "age": 58, "sex": "Male", "cp": "asymptomatic", "chol": 245,
-    "fbs": False, "thalch": 140, "exang": True, "oldpeak": 2.1,
-    "ca": 1, "thal": "reversable defect",
+    "age": 58,
+    "sex": "Male",
+    "cp": "asymptomatic",
+    "chol": 245,
+    "fbs": False,
+    "thalch": 140,
+    "exang": True,
+    "oldpeak": 2.1,
+    "ca": 1,
+    "thal": "reversable defect",
 }
 
 
-def test_health_check():
+def test_health_check(client):
     response = client.get("/health")
     assert response.status_code == 200
     body = response.json()
     assert body["status"] == "ok"
 
 
-def test_predict_basic_valid_input():
+def test_predict_basic_valid_input(client):
     response = client.post("/predict/basic", json=VALID_BASIC_PATIENT)
     assert response.status_code == 200
     body = response.json()
@@ -51,7 +81,7 @@ def test_predict_basic_valid_input():
         assert "feature" in fc and "value" in fc and "contribution" in fc
 
 
-def test_predict_advanced_valid_input():
+def test_predict_advanced_valid_input(client):
     response = client.post("/predict/advanced", json=VALID_ADVANCED_PATIENT)
     assert response.status_code == 200
     body = response.json()
@@ -59,7 +89,7 @@ def test_predict_advanced_valid_input():
     assert len(body["feature_contributions"]) > 0
 
 
-def test_predict_advanced_missing_optional_fields():
+def test_predict_advanced_missing_optional_fields(client):
     patient = dict(VALID_ADVANCED_PATIENT)
     del patient["ca"]
     del patient["thal"]
@@ -67,14 +97,14 @@ def test_predict_advanced_missing_optional_fields():
     assert response.status_code == 200
 
 
-def test_predict_basic_invalid_age_group_rejected():
+def test_predict_basic_invalid_age_group_rejected(client):
     patient = dict(VALID_BASIC_PATIENT)
     patient["age_group"] = "999"
     response = client.post("/predict/basic", json=patient)
     assert response.status_code == 422
 
 
-def test_stats_summary_returns_valid_structure():
+def test_stats_summary_returns_valid_structure(client):
     # Gọi predict trước để chắc chắn có ít nhất 1 bản ghi thống kê
     client.post("/predict/basic", json=VALID_BASIC_PATIENT)
     response = client.get("/stats/summary")
@@ -85,14 +115,14 @@ def test_stats_summary_returns_valid_structure():
     assert "by_mode" in body and "by_risk_level" in body and "by_day" in body
 
 
-def test_predict_missing_required_field():
+def test_predict_missing_required_field(client):
     patient = dict(VALID_BASIC_PATIENT)
     del patient["sex"]
     response = client.post("/predict/basic", json=patient)
     assert response.status_code == 422
 
 
-def test_chat_ollama_unavailable_returns_503_or_success():
+def test_chat_ollama_unavailable_returns_503_or_success(client):
     """
     Nếu Ollama chưa cài/chưa chạy, endpoint phải trả 503 rõ ràng (không phải lỗi 500
     khó hiểu). Nếu Ollama đã sẵn sàng, phải trả reply hợp lệ.
@@ -113,7 +143,7 @@ def test_chat_ollama_unavailable_returns_503_or_success():
         assert len(response.json()["reply"]) > 0
 
 
-def test_chat_stream_returns_text():
+def test_chat_stream_returns_text(client):
     """
     /chat/stream luôn trả 200 (kể cả khi Ollama lỗi — lỗi được nhúng vào nội dung
     text trả về, vì streaming response không đổi status code giữa chừng được).

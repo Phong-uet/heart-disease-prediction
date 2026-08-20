@@ -21,11 +21,13 @@ def test_build_model_invalid_type_raises_error():
 
 
 def test_split_data_shapes():
-    df = pd.DataFrame({
-        "feature1": range(100),
-        "feature2": range(100, 200),
-        "target": [0, 1] * 50,
-    })
+    df = pd.DataFrame(
+        {
+            "feature1": range(100),
+            "feature2": range(100, 200),
+            "target": [0, 1] * 50,
+        }
+    )
     X_train, X_test, y_train, y_test = split_data(
         df, target_col="target", test_size=0.2, random_state=42
     )

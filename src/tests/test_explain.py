@@ -18,20 +18,29 @@ ADVANCED_MODEL_PATH = "models/advanced/best_model.pkl"
 
 
 @pytest.mark.skipif(
-    not os.path.exists(ADVANCED_MODEL_PATH), reason="Chưa train model advanced (chạy entrypoint/train.py trước)"
+    not os.path.exists(ADVANCED_MODEL_PATH),
+    reason="Chưa train model advanced (chạy entrypoint/train.py trước)",
 )
 def test_explain_prediction_matches_baseline_direction():
     model = joblib.load(ADVANCED_MODEL_PATH)
     scaler = joblib.load("models/advanced/scaler.pkl")
     import json
+
     with open("models/advanced/feature_columns.json") as f:
         feature_columns = json.load(f)
 
     numeric_cols = ["age", "chol", "thalch", "oldpeak", "ca"]
     row = {
-        "age": 58, "sex": "Male", "cp": "asymptomatic", "chol": 245,
-        "fbs": 0, "thalch": 140, "exang": 1, "oldpeak": 2.1,
-        "ca": 1, "thal": "reversable defect",
+        "age": 58,
+        "sex": "Male",
+        "cp": "asymptomatic",
+        "chol": 245,
+        "fbs": 0,
+        "thalch": 140,
+        "exang": 1,
+        "oldpeak": 2.1,
+        "ca": 1,
+        "thal": "reversable defect",
     }
     df = pd.DataFrame([row])
     df = pd.get_dummies(df, columns=["sex", "cp", "thal"], drop_first=True)

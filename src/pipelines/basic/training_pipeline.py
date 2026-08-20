@@ -21,7 +21,10 @@ from sklearn.metrics import (
 
 import sys
 import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..")))
+
+sys.path.append(
+    os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+)
 
 from src.pipelines.utils import get_logger
 
@@ -41,7 +44,9 @@ def load_features(features_path: str) -> pd.DataFrame:
 def split_data(df: pd.DataFrame, target_col: str, test_size: float, random_state: int):
     X = df.drop(columns=[target_col])
     y = df[target_col]
-    return train_test_split(X, y, test_size=test_size, random_state=random_state, stratify=y)
+    return train_test_split(
+        X, y, test_size=test_size, random_state=random_state, stratify=y
+    )
 
 
 def build_model(model_type: str, params: dict):
@@ -65,14 +70,20 @@ def train(config: dict):
 
     model = build_model(model_cfg["type"], model_cfg["params"])
 
-    logger.info("Đang chạy cross-validation (dataset lớn, có thể mất chút thời gian)...")
+    logger.info(
+        "Đang chạy cross-validation (dataset lớn, có thể mất chút thời gian)..."
+    )
     cv_scores = cross_val_score(
-        model, X_train, y_train,
+        model,
+        X_train,
+        y_train,
         cv=train_cfg["cv_folds"],
         scoring=train_cfg["scoring"],
         n_jobs=-1,
     )
-    logger.info(f"CV {train_cfg['scoring']} scores: {cv_scores}, mean={cv_scores.mean():.4f}")
+    logger.info(
+        f"CV {train_cfg['scoring']} scores: {cv_scores}, mean={cv_scores.mean():.4f}"
+    )
 
     logger.info("Đang huấn luyện model trên toàn bộ tập train...")
     model.fit(X_train, y_train)

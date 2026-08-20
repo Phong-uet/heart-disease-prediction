@@ -61,12 +61,16 @@ def render_dashboard():
 
     total = summary.get("total_predictions", 0)
     if total == 0:
-        st.info("Chưa có lượt dự đoán nào được ghi nhận. Hãy thử dự đoán ở trang '🔍 Dự đoán' trước.")
+        st.info(
+            "Chưa có lượt dự đoán nào được ghi nhận. Hãy thử dự đoán ở trang '🔍 Dự đoán' trước."
+        )
         return
 
     col1, col2, col3 = st.columns(3)
     col1.metric("Tổng số lượt dự đoán", total)
-    col2.metric("Xác suất trung bình", f"{summary.get('avg_probability', 0) * 100:.1f}%")
+    col2.metric(
+        "Xác suất trung bình", f"{summary.get('avg_probability', 0) * 100:.1f}%"
+    )
     by_risk = summary.get("by_risk_level", {})
     col3.metric("Số ca nguy cơ Cao", by_risk.get("High", 0))
 
@@ -81,7 +85,9 @@ def render_dashboard():
         labels = [risk_labels_vi.get(k, k) for k in by_risk.keys()]
         values = list(by_risk.values())
         colors = [risk_colors.get(k, "#95A5A6") for k in by_risk.keys()]
-        fig1 = go.Figure(go.Pie(labels=labels, values=values, marker_colors=colors, hole=0.4))
+        fig1 = go.Figure(
+            go.Pie(labels=labels, values=values, marker_colors=colors, hole=0.4)
+        )
         fig1.update_layout(height=320, margin=dict(l=10, r=10, t=10, b=10))
         st.plotly_chart(fig1, use_container_width=True)
 
@@ -90,7 +96,9 @@ def render_dashboard():
         by_mode = summary.get("by_mode", {})
         mode_labels_vi = {"basic": "Sàng lọc nhanh", "advanced": "Nâng cao"}
         labels = [mode_labels_vi.get(k, k) for k in by_mode.keys()]
-        fig2 = go.Figure(go.Bar(x=labels, y=list(by_mode.values()), marker_color="#3498DB"))
+        fig2 = go.Figure(
+            go.Bar(x=labels, y=list(by_mode.values()), marker_color="#3498DB")
+        )
         fig2.update_layout(height=320, margin=dict(l=10, r=10, t=10, b=10))
         st.plotly_chart(fig2, use_container_width=True)
 
@@ -99,8 +107,17 @@ def render_dashboard():
         st.subheader("Số lượt dự đoán theo ngày")
         dates = [d["date"] for d in by_day]
         counts = [d["count"] for d in by_day]
-        fig3 = go.Figure(go.Scatter(x=dates, y=counts, mode="lines+markers", line=dict(color="#E74C3C")))
-        fig3.update_layout(height=300, margin=dict(l=10, r=10, t=10, b=10), xaxis_title="Ngày", yaxis_title="Số lượt")
+        fig3 = go.Figure(
+            go.Scatter(
+                x=dates, y=counts, mode="lines+markers", line=dict(color="#E74C3C")
+            )
+        )
+        fig3.update_layout(
+            height=300,
+            margin=dict(l=10, r=10, t=10, b=10),
+            xaxis_title="Ngày",
+            yaxis_title="Số lượt",
+        )
         st.plotly_chart(fig3, use_container_width=True)
 
     st.caption(
@@ -150,10 +167,12 @@ def render_contribution_chart(feature_contributions: list):
     )
 
 
-
 mode = st.radio(
     "Chọn chế độ",
-    ["🏠 Sàng lọc nhanh (tự đánh giá tại nhà)", "🏥 Nâng cao (đã có kết quả xét nghiệm/ECG)"],
+    [
+        "🏠 Sàng lọc nhanh (tự đánh giá tại nhà)",
+        "🏥 Nâng cao (đã có kết quả xét nghiệm/ECG)",
+    ],
     horizontal=False,
 )
 is_basic = mode.startswith("🏠")
@@ -180,49 +199,97 @@ if is_basic:
         with col1:
             age_group = st.selectbox(
                 "Nhóm tuổi",
-                ["18-24", "25-29", "30-34", "35-39", "40-44", "45-49",
-                 "50-54", "55-59", "60-64", "65-69", "70-74", "75-79", "80+"],
+                [
+                    "18-24",
+                    "25-29",
+                    "30-34",
+                    "35-39",
+                    "40-44",
+                    "45-49",
+                    "50-54",
+                    "55-59",
+                    "60-64",
+                    "65-69",
+                    "70-74",
+                    "75-79",
+                    "80+",
+                ],
                 index=6,
             )
-            sex = st.selectbox("Giới tính", ["Male", "Female"], format_func=lambda x: "Nam" if x == "Male" else "Nữ")
-            height_cm = st.number_input("Chiều cao (cm)", min_value=100, max_value=250, value=165)
-            weight_kg = st.number_input("Cân nặng (kg)", min_value=20, max_value=300, value=65)
+            sex = st.selectbox(
+                "Giới tính",
+                ["Male", "Female"],
+                format_func=lambda x: "Nam" if x == "Male" else "Nữ",
+            )
+            height_cm = st.number_input(
+                "Chiều cao (cm)", min_value=100, max_value=250, value=165
+            )
+            weight_kg = st.number_input(
+                "Cân nặng (kg)", min_value=20, max_value=300, value=65
+            )
 
             st.markdown("**Bệnh nền đã từng được bác sĩ chẩn đoán**")
             high_bp = st.checkbox("Cao huyết áp")
             high_chol = st.checkbox("Cholesterol cao")
-            chol_check = st.checkbox("Đã kiểm tra cholesterol trong 5 năm qua", value=True)
+            chol_check = st.checkbox(
+                "Đã kiểm tra cholesterol trong 5 năm qua", value=True
+            )
             diabetes = st.selectbox("Tiểu đường", ["Không", "Tiền tiểu đường", "Có"])
             stroke = st.checkbox("Từng bị đột quỵ")
 
         with col2:
             st.markdown("**Lối sống**")
             smoker = st.checkbox("Đã hút ít nhất 100 điếu thuốc trong đời")
-            phys_activity = st.checkbox("Có tập thể dục/vận động trong 30 ngày qua", value=True)
+            phys_activity = st.checkbox(
+                "Có tập thể dục/vận động trong 30 ngày qua", value=True
+            )
             fruits = st.checkbox("Ăn trái cây hàng ngày", value=True)
             veggies = st.checkbox("Ăn rau củ hàng ngày", value=True)
             heavy_alcohol = st.checkbox("Uống rượu bia nhiều")
 
             st.markdown("**Sức khỏe tổng quát**")
             gen_health = st.select_slider(
-                "Tự đánh giá sức khỏe", ["Rất tốt", "Tốt", "Khá", "Trung bình", "Kém"], value="Tốt"
+                "Tự đánh giá sức khỏe",
+                ["Rất tốt", "Tốt", "Khá", "Trung bình", "Kém"],
+                value="Tốt",
             )
-            mental_health_days = st.slider("Số ngày không ổn về tinh thần (30 ngày qua)", 0, 30, 0)
-            phys_health_days = st.slider("Số ngày không khỏe về thể chất (30 ngày qua)", 0, 30, 0)
+            mental_health_days = st.slider(
+                "Số ngày không ổn về tinh thần (30 ngày qua)", 0, 30, 0
+            )
+            phys_health_days = st.slider(
+                "Số ngày không khỏe về thể chất (30 ngày qua)", 0, 30, 0
+            )
             diff_walk = st.checkbox("Khó khăn khi đi bộ/leo cầu thang")
 
         with st.expander("Thông tin bổ sung (không bắt buộc quan trọng)"):
-            any_healthcare = st.checkbox("Có bảo hiểm y tế/tiếp cận dịch vụ y tế", value=True)
+            any_healthcare = st.checkbox(
+                "Có bảo hiểm y tế/tiếp cận dịch vụ y tế", value=True
+            )
             no_doc_because_cost = st.checkbox("Từng không đi khám vì lý do chi phí")
             education_level = st.selectbox(
                 "Trình độ học vấn",
-                ["Chưa học/Tiểu học", "Trung học cơ sở", "Trung học phổ thông (chưa tốt nghiệp)",
-                 "Tốt nghiệp THPT", "Cao đẳng/Đại học (chưa tốt nghiệp)", "Tốt nghiệp Đại học"],
+                [
+                    "Chưa học/Tiểu học",
+                    "Trung học cơ sở",
+                    "Trung học phổ thông (chưa tốt nghiệp)",
+                    "Tốt nghiệp THPT",
+                    "Cao đẳng/Đại học (chưa tốt nghiệp)",
+                    "Tốt nghiệp Đại học",
+                ],
                 index=3,
             )
             income_level = st.selectbox(
                 "Thu nhập hộ gia đình/năm (USD)",
-                ["<10k", "10-15k", "15-20k", "20-25k", "25-35k", "35-50k", "50-75k", ">75k"],
+                [
+                    "<10k",
+                    "10-15k",
+                    "15-20k",
+                    "20-25k",
+                    "25-35k",
+                    "35-50k",
+                    "50-75k",
+                    ">75k",
+                ],
                 index=4,
             )
 
@@ -230,15 +297,28 @@ if is_basic:
 
     if submitted:
         payload = {
-            "age_group": age_group, "sex": sex, "height_cm": height_cm, "weight_kg": weight_kg,
-            "high_bp": high_bp, "high_chol": high_chol, "chol_check": chol_check,
-            "diabetes": diabetes, "stroke": stroke,
-            "smoker": smoker, "phys_activity": phys_activity, "fruits": fruits, "veggies": veggies,
-            "heavy_alcohol": heavy_alcohol, "gen_health": gen_health,
-            "mental_health_days": mental_health_days, "phys_health_days": phys_health_days,
-            "diff_walk": diff_walk, "any_healthcare": any_healthcare,
+            "age_group": age_group,
+            "sex": sex,
+            "height_cm": height_cm,
+            "weight_kg": weight_kg,
+            "high_bp": high_bp,
+            "high_chol": high_chol,
+            "chol_check": chol_check,
+            "diabetes": diabetes,
+            "stroke": stroke,
+            "smoker": smoker,
+            "phys_activity": phys_activity,
+            "fruits": fruits,
+            "veggies": veggies,
+            "heavy_alcohol": heavy_alcohol,
+            "gen_health": gen_health,
+            "mental_health_days": mental_health_days,
+            "phys_health_days": phys_health_days,
+            "diff_walk": diff_walk,
+            "any_healthcare": any_healthcare,
             "no_doc_because_cost": no_doc_because_cost,
-            "education_level": education_level, "income_level": income_level,
+            "education_level": education_level,
+            "income_level": income_level,
         }
         endpoint = f"{api_url}/predict/basic"
         bmi_display = weight_kg / ((height_cm / 100) ** 2)
@@ -254,19 +334,34 @@ else:
         col1, col2 = st.columns(2)
         with col1:
             age = st.number_input("Tuổi", min_value=1, max_value=120, value=50)
-            sex = st.selectbox("Giới tính", ["Male", "Female"], format_func=lambda x: "Nam" if x == "Male" else "Nữ")
+            sex = st.selectbox(
+                "Giới tính",
+                ["Male", "Female"],
+                format_func=lambda x: "Nam" if x == "Male" else "Nữ",
+            )
             cp = st.selectbox(
                 "Loại đau ngực",
                 ["typical angina", "atypical angina", "non-anginal", "asymptomatic"],
             )
-            chol = st.number_input("Cholesterol huyết thanh (mg/dl)", min_value=0, value=200)
+            chol = st.number_input(
+                "Cholesterol huyết thanh (mg/dl)", min_value=0, value=200
+            )
             thalch = st.number_input("Nhịp tim tối đa đạt được", min_value=0, value=150)
 
         with col2:
             fbs = st.checkbox("Đường huyết lúc đói > 120 mg/dl")
             exang = st.checkbox("Đau thắt ngực khi vận động gắng sức")
-            oldpeak = st.number_input("ST depression (oldpeak)", min_value=-5.0, max_value=10.0, value=1.0, step=0.1)
-            ca_option = st.selectbox("Số mạch máu chính bị hẹp (ca)", ["Không có kết quả", "0", "1", "2", "3"])
+            oldpeak = st.number_input(
+                "ST depression (oldpeak)",
+                min_value=-5.0,
+                max_value=10.0,
+                value=1.0,
+                step=0.1,
+            )
+            ca_option = st.selectbox(
+                "Số mạch máu chính bị hẹp (ca)",
+                ["Không có kết quả", "0", "1", "2", "3"],
+            )
             thal_option = st.selectbox(
                 "Kết quả xạ hình thallium (thal)",
                 ["Không có kết quả", "normal", "fixed defect", "reversable defect"],
@@ -276,8 +371,14 @@ else:
 
     if submitted:
         payload = {
-            "age": age, "sex": sex, "cp": cp, "chol": chol, "fbs": fbs,
-            "thalch": thalch, "exang": exang, "oldpeak": oldpeak,
+            "age": age,
+            "sex": sex,
+            "cp": cp,
+            "chol": chol,
+            "fbs": fbs,
+            "thalch": thalch,
+            "exang": exang,
+            "oldpeak": oldpeak,
             "ca": None if ca_option == "Không có kết quả" else int(ca_option),
             "thal": None if thal_option == "Không có kết quả" else thal_option,
         }
@@ -367,7 +468,7 @@ elif "last_result" in st.session_state:
     st.subheader("💬 Hỏi thêm chatbot tư vấn")
     st.caption(
         "Chatbot trả lời dựa trên chính kết quả và thông tin bạn vừa nhập ở trên. "
-        "Ví dụ: \"Tôi nên thay đổi gì trong chế độ ăn?\", \"Kết quả này có đáng lo không?\""
+        'Ví dụ: "Tôi nên thay đổi gì trong chế độ ăn?", "Kết quả này có đáng lo không?"'
     )
 
     if "chat_history" not in st.session_state:
@@ -379,7 +480,9 @@ elif "last_result" in st.session_state:
 
     user_message = st.chat_input("Nhập câu hỏi của bạn...")
     if user_message:
-        st.session_state["chat_history"].append({"role": "user", "content": user_message})
+        st.session_state["chat_history"].append(
+            {"role": "user", "content": user_message}
+        )
         with st.chat_message("user"):
             st.markdown(user_message)
 
@@ -396,13 +499,20 @@ elif "last_result" in st.session_state:
             reply = ""
             try:
                 with requests.post(
-                    f"{api_url}/chat/stream", json=chat_payload, timeout=120, stream=True
+                    f"{api_url}/chat/stream",
+                    json=chat_payload,
+                    timeout=120,
+                    stream=True,
                 ) as chat_response:
                     if chat_response.status_code == 200:
-                        for chunk in chat_response.iter_content(chunk_size=None, decode_unicode=True):
+                        for chunk in chat_response.iter_content(
+                            chunk_size=None, decode_unicode=True
+                        ):
                             if chunk:
                                 reply += chunk
-                                placeholder.markdown(reply + "▌")  # con trỏ nhấp nháy kiểu đang gõ
+                                placeholder.markdown(
+                                    reply + "▌"
+                                )  # con trỏ nhấp nháy kiểu đang gõ
                         placeholder.markdown(reply)
                     else:
                         reply = f"⚠️ Lỗi từ API ({chat_response.status_code}): {chat_response.text}"
@@ -411,5 +521,6 @@ elif "last_result" in st.session_state:
                 reply = f"⚠️ Không gọi được chatbot: {e}"
                 placeholder.markdown(reply)
 
-            st.session_state["chat_history"].append({"role": "assistant", "content": reply})
-
+            st.session_state["chat_history"].append(
+                {"role": "assistant", "content": reply}
+            )

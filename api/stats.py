@@ -25,8 +25,7 @@ def _get_connection() -> sqlite3.Connection:
 
 def init_db():
     conn = _get_connection()
-    conn.execute(
-        """
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS predictions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             timestamp TEXT NOT NULL,
@@ -35,8 +34,7 @@ def init_db():
             probability REAL NOT NULL,
             risk_level TEXT NOT NULL
         )
-        """
-    )
+        """)
     conn.commit()
     conn.close()
 
@@ -49,7 +47,13 @@ def log_prediction(mode: str, prediction: int, probability: float, risk_level: s
         conn.execute(
             "INSERT INTO predictions (timestamp, mode, prediction, probability, risk_level) "
             "VALUES (?, ?, ?, ?, ?)",
-            (datetime.now(timezone.utc).isoformat(), mode, prediction, probability, risk_level),
+            (
+                datetime.now(timezone.utc).isoformat(),
+                mode,
+                prediction,
+                probability,
+                risk_level,
+            ),
         )
         conn.commit()
         conn.close()
@@ -74,14 +78,12 @@ def get_summary() -> dict:
     avg_row = cur.fetchone()[0]
     avg_probability = round(avg_row, 4) if avg_row is not None else 0.0
 
-    cur.execute(
-        """
+    cur.execute("""
         SELECT DATE(timestamp) as day, COUNT(*)
         FROM predictions
         GROUP BY day
         ORDER BY day
-        """
-    )
+        """)
     by_day = [{"date": row[0], "count": row[1]} for row in cur.fetchall()]
 
     conn.close()

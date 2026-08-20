@@ -38,5 +38,7 @@ def explain_prediction(model, X_row: pd.DataFrame) -> dict:
 
 def top_contributors(contributions: dict, top_k: int = 8) -> list[tuple[str, float]]:
     """Sắp xếp theo độ lớn ảnh hưởng (|contribution|) giảm dần, lấy top_k."""
-    sorted_items = sorted(contributions.items(), key=lambda kv: abs(kv[1]), reverse=True)
+    sorted_items = sorted(
+        contributions.items(), key=lambda kv: abs(kv[1]), reverse=True
+    )
     return sorted_items[:top_k]

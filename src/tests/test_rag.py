@@ -34,6 +34,7 @@ def test_retriever_not_ready_without_index(tmp_path):
     retriever_module.META_PATH = str(tmp_path / "nonexistent.json")
 
     from rag.retriever import KnowledgeRetriever
+
     r = KnowledgeRetriever()
     assert r.is_ready() is False
     results, score = r.retrieve("bất kỳ câu hỏi gì")
@@ -50,10 +51,13 @@ def test_retriever_finds_relevant_chunk(tmp_path):
     retriever_module.SIMILARITY_THRESHOLD = 0.5
 
     from rag.retriever import KnowledgeRetriever
+
     r = KnowledgeRetriever()
     assert r.is_ready() is True
 
-    with mock.patch.object(r, "_embed_query", return_value=np.array([1.0, 0.05], dtype=np.float32)):
+    with mock.patch.object(
+        r, "_embed_query", return_value=np.array([1.0, 0.05], dtype=np.float32)
+    ):
         relevant = r.retrieve_if_relevant("câu hỏi liên quan chủ đề A")
         assert len(relevant) > 0
         assert relevant[0]["heading"] == "Chủ đề A"
@@ -68,9 +72,12 @@ def test_retriever_skips_irrelevant_question(tmp_path):
     retriever_module.SIMILARITY_THRESHOLD = 0.5
 
     from rag.retriever import KnowledgeRetriever
+
     r = KnowledgeRetriever()
 
-    with mock.patch.object(r, "_embed_query", return_value=np.array([0.6, 0.6], dtype=np.float32)):
+    with mock.patch.object(
+        r, "_embed_query", return_value=np.array([0.6, 0.6], dtype=np.float32)
+    ):
         relevant = r.retrieve_if_relevant("câu hỏi không rõ liên quan gì")
         # Similarity với cả 2 chunk đều ~0.707 -> nếu threshold=0.5 thì vẫn có thể match,
         # nên test này chỉ đảm bảo hàm chạy không lỗi và trả về list hợp lệ

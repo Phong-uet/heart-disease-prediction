@@ -1,0 +1,14 @@
+[flake8]
+max-line-length = 120
+extend-ignore =
+    E203,
+    W503,
+    # E402: import không ở đầu file — có chủ đích trong project này, vì nhiều file
+    # cần sys.path.append(...) trước khi import được module nội bộ (src.*, api.*).
+    E402
+exclude =
+    .git,
+    __pycache__,
+    .venv,
+    venv,
+    notebooks

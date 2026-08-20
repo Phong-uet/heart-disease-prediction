@@ -1,0 +1,63 @@
+name: CI/CD
+
+# Chạy CI (test) trên mọi push và pull request.
+# Chạy CD (deploy) CHỈ khi: push thẳng vào nhánh main VÀ toàn bộ bước CI đã pass.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ==========================================================================
+  # CI — test + lint, chạy trên MỌI push/PR (kể cả nhánh khác, kể cả PR)
+  # ==========================================================================
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: "pip"
+
+      - name: Cài dependency
+        run: pip install -r requirements-dev.txt
+
+      - name: Kiểm tra format (black)
+        run: black --check src/ api/ entrypoint/ rag/ app/streamlit_app.py
+
+      - name: Kiểm tra lint (flake8)
+        run: flake8 --config=.flake8 src/ api/ entrypoint/ rag/
+
+      - name: Chạy test (pytest)
+        run: pytest src/tests/ -v
+
+  # ==========================================================================
+  # Build thử Docker image — xác nhận Dockerfile.spaces build thành công
+  # trước khi deploy thật (bắt lỗi build sớm, không phải sau khi đã push lên Render)
+  # ==========================================================================
+  docker-build:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build Docker image (Dockerfile.spaces)
+        run: docker build -f Dockerfile.spaces -t heart-disease-app:ci-test .
+
+  # ==========================================================================
+  # CD — deploy lên Render, CHỈ chạy khi push vào main VÀ 2 job trên đã pass
+  # ==========================================================================
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [test, docker-build]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - name: Trigger Render deploy qua Deploy Hook
+        run: |
+          curl -f -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"

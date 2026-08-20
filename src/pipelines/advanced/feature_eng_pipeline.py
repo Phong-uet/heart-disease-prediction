@@ -15,7 +15,10 @@ from sklearn.preprocessing import StandardScaler
 
 import sys
 import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..")))
+
+sys.path.append(
+    os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+)
 
 from src.pipelines.utils import get_logger
 
@@ -90,7 +93,9 @@ def build_features(config: dict) -> pd.DataFrame:
     feature_columns_path = config["model"]["feature_columns_path"]
     with open(feature_columns_path, "w", encoding="utf-8") as f:
         json.dump(feature_columns, f, ensure_ascii=False, indent=2)
-    logger.info(f"Đã lưu danh sách {len(feature_columns)} feature columns vào {feature_columns_path}")
+    logger.info(
+        f"Đã lưu danh sách {len(feature_columns)} feature columns vào {feature_columns_path}"
+    )
 
     return df
 

@@ -47,7 +47,8 @@ def evaluate_variant(df: pd.DataFrame, target_col: str, config: dict, label: str
     y = df[target_col]
 
     X_train, X_test, y_train, y_test = train_test_split(
-        X, y,
+        X,
+        y,
         test_size=config["data"]["test_size"],
         random_state=config["data"]["random_state"],
         stratify=y,
@@ -56,7 +57,9 @@ def evaluate_variant(df: pd.DataFrame, target_col: str, config: dict, label: str
     model = RandomForestClassifier(**config["model"]["params"])
 
     cv_scores = cross_val_score(
-        model, X_train, y_train,
+        model,
+        X_train,
+        y_train,
         cv=config["training"]["cv_folds"],
         scoring=config["training"]["scoring"],
     )
@@ -86,13 +89,17 @@ def run_experiment(config: dict):
 
     logger.info("=== Variant B: Đã loại bỏ trestbps, restecg, slope ===")
     df_reduced = build_features_variant(df_raw, drop_cols=LOW_IMPORTANCE_RAW_COLS)
-    result_reduced = evaluate_variant(df_reduced, target_col, config, "Reduced features")
+    result_reduced = evaluate_variant(
+        df_reduced, target_col, config, "Reduced features"
+    )
 
     comparison = pd.DataFrame([result_full, result_reduced]).set_index("variant")
     logger.info("\n=== SO SÁNH KẾT QUẢ ===\n" + comparison.to_string())
 
     comparison.to_csv("reports/advanced/feature_selection_comparison.csv")
-    logger.info("Đã lưu bảng so sánh vào reports/advanced/feature_selection_comparison.csv")
+    logger.info(
+        "Đã lưu bảng so sánh vào reports/advanced/feature_selection_comparison.csv"
+    )
 
     return comparison
 

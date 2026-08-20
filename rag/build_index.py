@@ -73,7 +73,9 @@ def build_index():
         all_chunks.extend(chunks)
         print(f"  {filename}: {len(chunks)} chunks")
 
-    print(f"\nTổng {len(all_chunks)} chunks. Đang tính embedding qua Ollama ({EMBED_MODEL})...")
+    print(
+        f"\nTổng {len(all_chunks)} chunks. Đang tính embedding qua Ollama ({EMBED_MODEL})..."
+    )
 
     embeddings = []
     for i, chunk in enumerate(all_chunks):
@@ -84,7 +86,10 @@ def build_index():
     embeddings_matrix = np.array(embeddings, dtype=np.float32)
     np.save(INDEX_PATH, embeddings_matrix)
 
-    meta = [{"source": c["source"], "heading": c["heading"], "text": c["text"]} for c in all_chunks]
+    meta = [
+        {"source": c["source"], "heading": c["heading"], "text": c["text"]}
+        for c in all_chunks
+    ]
     with open(META_PATH, "w", encoding="utf-8") as f:
         json.dump(meta, f, ensure_ascii=False, indent=2)
 

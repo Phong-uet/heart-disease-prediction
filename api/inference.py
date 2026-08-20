@@ -13,25 +13,54 @@ from api.schemas import PatientInputBasic, PatientInputAdvanced
 from api.explain import explain_prediction, top_contributors
 
 # Phải khớp SCALE_COLS trong src/pipelines/basic/feature_eng_pipeline.py
-BASIC_SCALE_COLS = ["BMI", "MentHlth", "PhysHlth", "GenHlth", "Age", "Education", "Income", "Diabetes"]
+BASIC_SCALE_COLS = [
+    "BMI",
+    "MentHlth",
+    "PhysHlth",
+    "GenHlth",
+    "Age",
+    "Education",
+    "Income",
+    "Diabetes",
+]
 
 # Phải khớp NUMERIC_COLS trong src/pipelines/advanced/feature_eng_pipeline.py
 ADVANCED_NUMERIC_COLS = ["age", "chol", "thalch", "oldpeak", "ca"]
 
 AGE_GROUP_MAP = {
-    "18-24": 1, "25-29": 2, "30-34": 3, "35-39": 4, "40-44": 5, "45-49": 6,
-    "50-54": 7, "55-59": 8, "60-64": 9, "65-69": 10, "70-74": 11, "75-79": 12, "80+": 13,
+    "18-24": 1,
+    "25-29": 2,
+    "30-34": 3,
+    "35-39": 4,
+    "40-44": 5,
+    "45-49": 6,
+    "50-54": 7,
+    "55-59": 8,
+    "60-64": 9,
+    "65-69": 10,
+    "70-74": 11,
+    "75-79": 12,
+    "80+": 13,
 }
 DIABETES_MAP = {"Không": 0, "Tiền tiểu đường": 1, "Có": 2}
 GEN_HEALTH_MAP = {"Rất tốt": 1, "Tốt": 2, "Khá": 3, "Trung bình": 4, "Kém": 5}
 EDUCATION_MAP = {
-    "Chưa học/Tiểu học": 1, "Trung học cơ sở": 2,
-    "Trung học phổ thông (chưa tốt nghiệp)": 3, "Tốt nghiệp THPT": 4,
-    "Cao đẳng/Đại học (chưa tốt nghiệp)": 5, "Tốt nghiệp Đại học": 6,
+    "Chưa học/Tiểu học": 1,
+    "Trung học cơ sở": 2,
+    "Trung học phổ thông (chưa tốt nghiệp)": 3,
+    "Tốt nghiệp THPT": 4,
+    "Cao đẳng/Đại học (chưa tốt nghiệp)": 5,
+    "Tốt nghiệp Đại học": 6,
 }
 INCOME_MAP = {
-    "<10k": 1, "10-15k": 2, "15-20k": 3, "20-25k": 4,
-    "25-35k": 5, "35-50k": 6, "50-75k": 7, ">75k": 8,
+    "<10k": 1,
+    "10-15k": 2,
+    "15-20k": 3,
+    "20-25k": 4,
+    "25-35k": 5,
+    "35-50k": 6,
+    "50-75k": 7,
+    ">75k": 8,
 }
 
 # Nhãn tiếng Việt dễ hiểu cho từng cột feature nội bộ — dùng khi hiển thị giải thích dự đoán
@@ -97,7 +126,9 @@ class BasePredictor:
         df = df.reindex(columns=self.feature_columns, fill_value=0)
         return df
 
-    def predict_from_df(self, X: pd.DataFrame, labels: dict, display_values: dict) -> dict:
+    def predict_from_df(
+        self, X: pd.DataFrame, labels: dict, display_values: dict
+    ) -> dict:
         proba = float(self.model.predict_proba(X)[0, 1])
         prediction = int(proba >= 0.5)
 
@@ -153,7 +184,10 @@ class BasicPredictor(BasePredictor):
         return self._finalize(df, BASIC_SCALE_COLS)
 
     def _display_values(self, patient: PatientInputBasic) -> dict:
-        yn = lambda b: "Có" if b else "Không"
+
+        def yn(b):
+            return "Có" if b else "Không"
+
         return {
             "HighBP": yn(patient.high_bp),
             "HighChol": yn(patient.high_chol),
@@ -180,7 +214,9 @@ class BasicPredictor(BasePredictor):
 
     def predict(self, patient: PatientInputBasic) -> dict:
         X = self.transform(patient)
-        return self.predict_from_df(X, BASIC_FEATURE_LABELS, self._display_values(patient))
+        return self.predict_from_df(
+            X, BASIC_FEATURE_LABELS, self._display_values(patient)
+        )
 
 
 class AdvancedPredictor(BasePredictor):
@@ -204,7 +240,10 @@ class AdvancedPredictor(BasePredictor):
         return self._finalize(df, ADVANCED_NUMERIC_COLS)
 
     def _display_values(self, patient: PatientInputAdvanced) -> dict:
-        yn = lambda b: "Có" if b else "Không"
+
+        def yn(b):
+            return "Có" if b else "Không"
+
         return {
             "age": str(patient.age),
             "chol": f"{patient.chol} mg/dl",
@@ -218,10 +257,14 @@ class AdvancedPredictor(BasePredictor):
             "cp_non-anginal": "Có" if patient.cp == "non-anginal" else "Không",
             "cp_typical angina": "Có" if patient.cp == "typical angina" else "Không",
             "thal_normal": "Có" if patient.thal == "normal" else "Không",
-            "thal_reversable defect": "Có" if patient.thal == "reversable defect" else "Không",
+            "thal_reversable defect": (
+                "Có" if patient.thal == "reversable defect" else "Không"
+            ),
             "thal_unknown": "Có" if patient.thal is None else "Không",
         }
 
     def predict(self, patient: PatientInputAdvanced) -> dict:
         X = self.transform(patient)
-        return self.predict_from_df(X, ADVANCED_FEATURE_LABELS, self._display_values(patient))
+        return self.predict_from_df(
+            X, ADVANCED_FEATURE_LABELS, self._display_values(patient)
+        )

@@ -11,6 +11,7 @@ Sau đó mở http://127.0.0.1:8000/docs để test qua giao diện Swagger.
 
 import sys
 import os
+from contextlib import asynccontextmanager
 
 sys.path.append(os.getcwd())
 
@@ -40,35 +41,22 @@ from api import stats
 from src.pipelines.utils import load_config, get_logger
 
 BASIC_CONFIG_PATH = os.environ.get("BASIC_CONFIG_PATH", "config/basic/local.yaml")
-ADVANCED_CONFIG_PATH = os.environ.get("ADVANCED_CONFIG_PATH", "config/advanced/local.yaml")
+ADVANCED_CONFIG_PATH = os.environ.get(
+    "ADVANCED_CONFIG_PATH", "config/advanced/local.yaml"
+)
 
 basic_config = load_config(BASIC_CONFIG_PATH)
 advanced_config = load_config(ADVANCED_CONFIG_PATH)
 logger = get_logger("api", basic_config["logging"]["level"])
-
-app = FastAPI(
-    title="Heart Disease Prediction API",
-    description=(
-        "API dự đoán khả năng mắc bệnh tim. "
-        "Có 2 chế độ: basic (tự đánh giá tại nhà) và advanced (cần kết quả xét nghiệm)."
-    ),
-    version="2.0.0",
-)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 basic_predictor: BasicPredictor | None = None
 advanced_predictor: AdvancedPredictor | None = None
 chatbot: HealthChatbot | None = None  # luôn được gán ở startup, không raise lỗi
 
 
-@app.on_event("startup")
-def load_models():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # --- Chạy lúc khởi động (thay cho @app.on_event("startup") đã lỗi thời) ---
     global basic_predictor, advanced_predictor, chatbot
 
     stats.init_db()
@@ -98,10 +86,14 @@ def load_models():
 
     chatbot = HealthChatbot()
     if chatbot.is_available():
-        logger.info(f"Chatbot (backend={chatbot.backend}, model={chatbot.model}) đã sẵn sàng.")
+        logger.info(
+            f"Chatbot (backend={chatbot.backend}, model={chatbot.model}) đã sẵn sàng."
+        )
     else:
         if chatbot.backend == "groq":
-            logger.warning("Thiếu GROQ_API_KEY. Endpoint /chat sẽ báo lỗi rõ ràng cho tới khi cấu hình key.")
+            logger.warning(
+                "Thiếu GROQ_API_KEY. Endpoint /chat sẽ báo lỗi rõ ràng cho tới khi cấu hình key."
+            )
         else:
             logger.warning(
                 f"Ollama chưa chạy hoặc chưa cài tại {chatbot.base_url}. "
@@ -110,12 +102,36 @@ def load_models():
             )
 
     if chatbot.rag_ready():
-        logger.info(f"RAG đã sẵn sàng ({len(chatbot.retriever._meta)} chunks đã index).")
+        logger.info(
+            f"RAG đã sẵn sàng ({len(chatbot.retriever._meta)} chunks đã index)."
+        )
     else:
         logger.info(
             "RAG chưa được bật (chưa chạy `python rag/build_index.py`). "
             "Chatbot vẫn hoạt động bình thường, chỉ không tra cứu tài liệu."
         )
+
+    yield  # --- App chạy trong khoảng này ---
+
+    # --- Chạy lúc tắt (không cần dọn gì đặc biệt hiện tại) ---
+
+
+app = FastAPI(
+    title="Heart Disease Prediction API",
+    description=(
+        "API dự đoán khả năng mắc bệnh tim. "
+        "Có 2 chế độ: basic (tự đánh giá tại nhà) và advanced (cần kết quả xét nghiệm)."
+    ),
+    version="2.0.0",
+    lifespan=lifespan,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.get("/health", response_model=HealthResponse)
@@ -139,7 +155,9 @@ def predict_basic(patient: PatientInputBasic):
     try:
         result = basic_predictor.predict(patient)
         logger.info(f"[basic] input={patient.model_dump()} -> result={result}")
-        stats.log_prediction("basic", result["prediction"], result["probability"], result["risk_level"])
+        stats.log_prediction(
+            "basic", result["prediction"], result["probability"], result["risk_level"]
+        )
         return PredictionResponse(**result)
     except Exception as e:
         logger.error(f"Lỗi khi predict (basic): {e}")
@@ -156,7 +174,12 @@ def predict_advanced(patient: PatientInputAdvanced):
     try:
         result = advanced_predictor.predict(patient)
         logger.info(f"[advanced] input={patient.model_dump()} -> result={result}")
-        stats.log_prediction("advanced", result["prediction"], result["probability"], result["risk_level"])
+        stats.log_prediction(
+            "advanced",
+            result["prediction"],
+            result["probability"],
+            result["risk_level"],
+        )
         return PredictionResponse(**result)
     except Exception as e:
         logger.error(f"Lỗi khi predict (advanced): {e}")
@@ -225,5 +248,11 @@ def root():
         "message": "Heart Disease Prediction API đang chạy.",
         "docs": "/docs",
         "health": "/health",
-        "endpoints": ["/predict/basic", "/predict/advanced", "/chat", "/chat/stream", "/stats/summary"],
+        "endpoints": [
+            "/predict/basic",
+            "/predict/advanced",
+            "/chat",
+            "/chat/stream",
+            "/stats/summary",
+        ],
     }

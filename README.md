@@ -259,6 +259,39 @@ Lưu ý: đây không phải Shapley values chuẩn về mặt lý thuyết (t�
 thiết bằng đúng chênh lệch xác suất so với baseline), nhưng đủ trực quan để hiểu hướng ảnh
 hưởng của từng yếu tố.
 
+## CI/CD (GitHub Actions)
+
+Mỗi lần `push`/tạo Pull Request, pipeline tự động chạy tại `.github/workflows/ci-cd.yml`:
+
+```
+push/PR → [test: black + flake8 + pytest] → [docker-build: build thử image] → [deploy: chỉ khi push vào main VÀ 2 bước trên pass]
+```
+
+- **Push vào nhánh khác / mở PR** → chỉ chạy `test` + `docker-build`, KHÔNG deploy — dùng để
+  kiểm tra an toàn trước khi merge.
+- **Push (hoặc merge) vào `main`** → nếu test + build đều pass, tự động gọi Render Deploy Hook
+  để deploy bản mới. Nếu test/build fail, **không deploy** — tránh đưa code lỗi lên production.
+
+### Thiết lập (làm 1 lần)
+
+1. Trên Render Dashboard → service của bạn → **Settings** → tìm mục **Deploy Hook** → copy URL
+   (dạng `https://api.render.com/deploy/srv-xxxxx?key=yyyyy`)
+2. **Tắt Auto-Deploy có sẵn của Render** (cùng trang Settings, mục Auto-Deploy → chọn No)
+   — để việc deploy CHỈ do pipeline CI/CD quyết định (sau khi test pass), tránh deploy trùng
+   lặp hoặc deploy code chưa qua kiểm tra.
+3. Trên GitHub repo → **Settings** → **Secrets and variables** → **Actions** → **New repository
+   secret**:
+   - Name: `RENDER_DEPLOY_HOOK_URL`
+   - Value: URL đã copy ở bước 1
+4. Push code lên nhánh `main` — vào tab **Actions** trên GitHub để xem pipeline chạy trực tiếp.
+
+### Xem kết quả
+
+Tab **Actions** trên GitHub repo hiển thị lịch sử mọi lần chạy — bấm vào từng lần để xem chi
+tiết log từng bước (test nào fail, dòng code nào không đúng format...).
+
+## Kết quả model
+
 ## Kết quả model
 
 | Chế độ | Test Accuracy | Test ROC-AUC | Ghi chú |

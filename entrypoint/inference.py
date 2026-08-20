@@ -16,13 +16,20 @@ from src.pipelines.utils import load_config, get_logger
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Run inference for heart disease prediction")
-    parser.add_argument(
-        "--mode", type=str, choices=["basic", "advanced"], default="basic",
+    parser = argparse.ArgumentParser(
+        description="Run inference for heart disease prediction"
     )
     parser.add_argument(
-        "--config", type=str, default=None,
-        help="Đường dẫn config, mặc định config/<mode>/local.yaml"
+        "--mode",
+        type=str,
+        choices=["basic", "advanced"],
+        default="basic",
+    )
+    parser.add_argument(
+        "--config",
+        type=str,
+        default=None,
+        help="Đường dẫn config, mặc định config/<mode>/local.yaml",
     )
     args = parser.parse_args()
     config_path = args.config or f"config/{args.mode}/local.yaml"
