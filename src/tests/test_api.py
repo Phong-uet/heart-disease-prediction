@@ -134,7 +134,7 @@ def test_chat_ollama_unavailable_returns_503_or_success(client):
         "mode": "basic",
         "patient": VALID_BASIC_PATIENT,
         "prediction_result": prediction_result,
-        "message": "Tôi nên ăn uống thế nào?",
+        "message": "Tôi nên ăn uống như thế nào?",
         "history": [],
     }
     response = client.post("/chat", json=chat_payload)
@@ -155,7 +155,7 @@ def test_chat_stream_returns_text(client):
         "mode": "basic",
         "patient": VALID_BASIC_PATIENT,
         "prediction_result": prediction_result,
-        "message": "Tôi nên ăn uống thế nào?",
+        "message": "Tôi nên ăn uống như thế nào?",
         "history": [],
     }
     with client.stream("POST", "/chat/stream", json=chat_payload) as response:
